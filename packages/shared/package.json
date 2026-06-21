@@ -2,12 +2,28 @@
   "name": "@repo/shared",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "default": "./index.ts"
+    },
+    "./env": {
+      "types": "./env.ts",
+      "default": "./env.ts"
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "eslint ."
+  },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@types/node": "^22.15.3",
     "zod": "^4.3.5"
   }
 }

@@ -1,8 +1,8 @@
-import { z, zodUndefinedModel } from "../../schema";
-import { userService } from "../../services";
+import { z, zodUndefinedModel } from "../../schema.js";
+import { userService } from "../../services/index.js";
 import { getAuthenticationMethodOutputSchema } from "@repo/services/user/model";
-import { publicProcedure, router } from "../../trpc";
-import { generatePath } from "../../utils/path-generator";
+import { publicProcedure, router } from "../../trpc.js";
+import { generatePath } from "../../utils/path-generator.js";
 
 const TAGS = ["Authentication"];
 const getPath = generatePath("/authentication");

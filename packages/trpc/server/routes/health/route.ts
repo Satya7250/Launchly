@@ -1,5 +1,5 @@
-import { z, zodUndefinedModel } from "../../schema";
-import { publicProcedure, router } from "../../trpc";
+import { z, zodUndefinedModel } from "../../schema.js";
+import { publicProcedure, router } from "../../trpc.js";
 
 export const healthRouter = router({
   getHealth: publicProcedure

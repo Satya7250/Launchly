@@ -7,7 +7,7 @@ import {
   accountsTable,
   verificationsTable,
 } from "@repo/database/schema";
-import { env } from "./env";
+import { env } from "./env.js";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {

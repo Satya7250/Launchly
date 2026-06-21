@@ -1,8 +1,6 @@
-import { db } from "@repo/database";
-import { usersTable } from "@repo/database/schema";
-import { env } from "../env";
-import { googleOAuth2Client } from "../clients/google-oauth";
-import { GetAuthenticationMethodOutputSchema } from "./model";
+import { env } from "../env.js";
+import { googleOAuth2Client } from "../clients/google-oauth.js";
+import { GetAuthenticationMethodOutputSchema } from "./model.js";
 
 class UserService {
   public async getAuthenticationMethods(): Promise<

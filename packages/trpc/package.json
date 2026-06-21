@@ -2,10 +2,24 @@
   "name": "@repo/trpc",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
+  "exports": {
+    "./client": {
+      "types": "./client/index.ts",
+      "default": "./client/index.ts"
+    },
+    "./server": {
+      "types": "./server/index.ts",
+      "default": "./server/index.ts"
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "eslint ."
+  },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "dotenv-cli": "^11.0.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {
