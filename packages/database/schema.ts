@@ -1,1 +1,1 @@
-export * from "./models/user";
+export * from "./schema/index";

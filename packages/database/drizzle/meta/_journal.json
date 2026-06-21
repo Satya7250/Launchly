@@ -8,6 +8,20 @@
       "when": 1767592965691,
       "tag": "0000_dusty_morg",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782022696491,
+      "tag": "0001_pretty_thundra",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782023359181,
+      "tag": "0002_worthless_next_avengers",
+      "breakpoints": true
     }
   ]
 }
