@@ -1,5 +1,7 @@
 import { api } from "~/trpc/server";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const { status } = await api.health.getHealth.query();
   return (
@@ -11,3 +13,4 @@ export default async function Home() {
     </main>
   );
 }
+

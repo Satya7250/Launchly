@@ -1,6 +1,29 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "ui": "tui",
+  "globalPassThroughEnv": [
+    "PORT",
+    "NODE_ENV",
+    "BASE_URL",
+    "NEXT_PUBLIC_API_URL",
+    "DATABASE_URL",
+    "LOGGER_LEVEL",
+    "GOOGLE_OAUTH_CLIENT_ID",
+    "GOOGLE_OAUTH_CLIENT_SECRET",
+    "GOOGLE_OAUTH_REDIRECT_URI",
+    "BETTER_AUTH_SECRET",
+    "BETTER_AUTH_URL",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "OPENAI_API_KEY",
+    "GITHUB_APP_ID",
+    "GITHUB_PRIVATE_KEY",
+    "GITHUB_WEBHOOK_SECRET",
+    "RAZORPAY_KEY_ID",
+    "RAZORPAY_KEY_SECRET",
+    "INNGEST_EVENT_KEY",
+    "INNGEST_SIGNING_KEY"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -21,3 +44,4 @@
     "db:migrate": {}
   }
 }
+

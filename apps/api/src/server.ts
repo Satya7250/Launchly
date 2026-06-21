@@ -1,6 +1,8 @@
 import express from "express";
 import { logger } from "@repo/logger";
 import cors from "cors";
+import { auth } from "@repo/auth";
+import { toNodeHandler } from "better-auth/node";
 
 import * as trpcExpress from "@trpc/server/adapters/express";
 import { generateOpenApiDocument, createOpenApiExpressMiddleware } from "trpc-to-openapi";
@@ -17,13 +19,14 @@ const openApiDocument = generateOpenApiDocument(serverRouter, {
   baseUrl: env.BASE_URL.concat("/api"),
 });
 
-if (env.NODE_ENV !== "prod") {
-  app.use(
-    cors({
-      origin: "*",
-    }),
-  );
-}
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+    credentials: true,
+  }),
+);
+
+app.all("/api/auth/{*any}", toNodeHandler(auth));
 
 app.use(express.json());
 
