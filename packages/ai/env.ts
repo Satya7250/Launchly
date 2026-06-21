@@ -3,6 +3,6 @@ import { createEnv } from "@repo/shared/env";
 
 export const env = createEnv(
   z.object({
-    DATABASE_URL: z.string().describe("DB URL"),
+    OPENAI_API_KEY: z.string(),
   })
 );

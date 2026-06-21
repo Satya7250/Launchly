@@ -2,9 +2,9 @@
   "name": "@repo/database",
   "version": "1.0.0",
   "scripts": {
-    "db:migrate": "dotenv -- drizzle-kit migrate",
-    "db:generate": "dotenv -- drizzle-kit generate",
-    "dev": "dotenv -- drizzle-kit studio"
+    "db:migrate": "dotenv -e ../../.env -- drizzle-kit migrate",
+    "db:generate": "dotenv -e ../../.env -- drizzle-kit generate",
+    "dev": "dotenv -e ../../.env -- drizzle-kit studio"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
@@ -16,6 +16,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@repo/shared": "workspace:*",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
     "pg": "^8.16.3",

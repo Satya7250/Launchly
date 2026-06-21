@@ -8,6 +8,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@repo/shared": "workspace:*",
     "winston": "^3.19.0",
     "zod": "^4.3.5"
   }

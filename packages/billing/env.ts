@@ -3,6 +3,7 @@ import { createEnv } from "@repo/shared/env";
 
 export const env = createEnv(
   z.object({
-    DATABASE_URL: z.string().describe("DB URL"),
+    RAZORPAY_KEY_ID: z.string(),
+    RAZORPAY_KEY_SECRET: z.string(),
   })
 );

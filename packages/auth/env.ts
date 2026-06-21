@@ -3,6 +3,8 @@ import { createEnv } from "@repo/shared/env";
 
 export const env = createEnv(
   z.object({
-    DATABASE_URL: z.string().describe("DB URL"),
+    BETTER_AUTH_SECRET: z.string(),
+    GOOGLE_CLIENT_ID: z.string(),
+    GOOGLE_CLIENT_SECRET: z.string(),
   })
 );
