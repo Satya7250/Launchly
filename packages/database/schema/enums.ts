@@ -46,3 +46,11 @@ export const aiReviewStatusEnum = pgEnum("ai_review_status", [
   "FAILED",
 ]);
 
+export const featureRequestSourceEnum = pgEnum("feature_request_source", [
+  "MANUAL",
+  "EMAIL",
+  "API",
+  "SUPPORT",
+]);
+
+

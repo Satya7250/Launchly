@@ -26,7 +26,7 @@ app.use(
   }),
 );
 
-app.all("/api/auth/{*any}", toNodeHandler(auth));
+app.all("/api/auth/*any", toNodeHandler(auth));
 
 app.use(express.json());
 

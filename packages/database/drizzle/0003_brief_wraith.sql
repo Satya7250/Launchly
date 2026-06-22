@@ -1,0 +1,2 @@
+CREATE TYPE "public"."feature_request_source" AS ENUM('MANUAL', 'EMAIL', 'API', 'SUPPORT');--> statement-breakpoint
+ALTER TABLE "feature_requests" ADD COLUMN "source" "feature_request_source" DEFAULT 'MANUAL' NOT NULL;

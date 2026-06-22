@@ -494,6 +494,9 @@ importers:
 
   packages/services:
     dependencies:
+      '@repo/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@repo/database':
         specifier: workspace:*
         version: link:../database
@@ -544,6 +547,12 @@ importers:
 
   packages/trpc:
     dependencies:
+      '@repo/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@repo/database':
+        specifier: workspace:*
+        version: link:../database
       '@repo/services':
         specifier: workspace:*
         version: link:../services

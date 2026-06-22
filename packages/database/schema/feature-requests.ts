@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { organizationsTable } from "./organizations";
 import { projectsTable } from "./projects";
 import { usersTable } from "./users";
-import { featureRequestStatusEnum, featureRequestPriorityEnum } from "./enums";
+import { featureRequestStatusEnum, featureRequestPriorityEnum, featureRequestSourceEnum } from "./enums";
 
 export const featureRequestsTable = pgTable(
   "feature_requests",
@@ -21,6 +21,7 @@ export const featureRequestsTable = pgTable(
       .references(() => usersTable.id, { onDelete: "set null" }),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description").notNull(),
+    source: featureRequestSourceEnum("source").default("MANUAL").notNull(),
     status: featureRequestStatusEnum("status").default("NEW").notNull(),
     priority: featureRequestPriorityEnum("priority").default("MEDIUM").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),

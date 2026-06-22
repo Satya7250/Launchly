@@ -36,6 +36,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@repo/auth": "workspace:*",
     "@repo/database": "workspace:*",
     "@repo/logger": "workspace:*",
     "@repo/shared": "workspace:*",
@@ -43,3 +44,4 @@
     "zod": "^4.3.5"
   }
 }
+
