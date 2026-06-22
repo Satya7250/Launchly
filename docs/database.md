@@ -350,21 +350,26 @@ erDiagram
 | `id` | uuid | Task ID |
 | `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
 | `prd_id` | uuid | Reference to `prds.id` (cascade onDelete) |
+| `project_id` | uuid | Reference to `projects.id` (cascade onDelete) |
 | `title` | varchar(255) | Name of developer task |
 | `description` | text | Technical requirements / specs |
-| `status` | enum | Status (`TODO`, `IN_PROGRESS`, `IN_REVIEW`, `DONE`) |
+| `status` | enum | Status (`BACKLOG`, `TODO`, `IN_PROGRESS`, `IN_REVIEW`, `DONE`) |
 | `assignee_id` | uuid | Assigned developer (set null onDelete) |
+| `position` | integer | Positional sorting index within a status column |
+| `version` | integer | Task breakdown generation version (default 1) |
+| `metadata` | jsonb | AI metadata containing estimate, complexity, priority, confidence, and dependencies |
 | `created_at` | timestamp | Creation timestamp |
 | `updated_at` | timestamp | Update timestamp |
 
 #### Constraints & Indexes
 - Index: `engineering_tasks_org_id_idx` on `organization_id`.
 - Index: `engineering_tasks_prd_id_idx` on `prd_id`.
+- Index: `engineering_tasks_project_id_idx` on `project_id`.
 - Index: `engineering_tasks_status_idx` on `status`.
 - Index: `engineering_tasks_assignee_id_idx` on `assignee_id`.
 
 #### Relationships
-- Many-to-One: `organizations`, `prds`, `users`
+- Many-to-One: `organizations`, `prds`, `projects`, `users`
 
 ---
 
@@ -560,3 +565,41 @@ erDiagram
 
 #### Relationships
 - Many-to-One: `organizations`
+
+---
+
+### task_generation_audits
+**Purpose**: Logs historical, immutable AI task generation attempts.  
+**Primary Key**: `id` (uuid, defaultRandom)
+
+#### Columns
+| Column | Type | Description |
+|---|---|---|
+| `id` | uuid | Generation ID |
+| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
+| `prd_id` | uuid | Reference to `prds.id` (cascade onDelete) |
+| `provider` | varchar(255) | AI provider name (e.g. `"openai"`, `"mock"`) |
+| `model` | varchar(255) | Model variant (e.g. `"gpt-4o-mini"`) |
+| `prompt_version` | varchar(255) | AI prompt version variant (e.g. `"v1"`) |
+| `prompt_hash` | varchar(255) | SHA-256 hash of the generated prompt input |
+| `response_hash` | varchar(255) | SHA-256 hash of the generated task output JSON |
+| `temperature` | real | Generation model temperature (e.g. `0.2`) |
+| `status` | enum | Run status (`NOT_STARTED`, `QUEUED`, `GENERATING`, `COMPLETED`, `FAILED`) |
+| `idempotency_key` | varchar(255) | Unique idempotency checker key |
+| `generated_version` | integer | Mapped engineering task version |
+| `started_at` | timestamp | Run initialization timestamp |
+| `completed_at` | timestamp | Run termination timestamp |
+| `duration_ms` | integer | Generation execution duration |
+| `token_usage` | jsonb | Token footprint metadata `{ promptTokens, completionTokens, totalTokens }` |
+| `error` | text | Captured exception error string (if failed) |
+| `created_at` | timestamp | Creation timestamp |
+| `updated_at` | timestamp | Update timestamp |
+
+#### Constraints & Indexes
+- Index: `task_generation_audits_org_id_idx` on `organization_id`.
+- Index: `task_generation_audits_prd_id_idx` on `prd_id`.
+- Index: `task_generation_audits_status_idx` on `status`.
+- Index: `task_generation_audits_idempotency_idx` on `idempotency_key`.
+
+#### Relationships
+- Many-to-One: `organizations`, `prds`

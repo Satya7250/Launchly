@@ -24,6 +24,9 @@
   },
   "dependencies": {
     "@repo/shared": "workspace:*",
+    "@repo/database": "workspace:*",
+    "@repo/ai": "workspace:*",
+    "inngest": "^4.7.0",
     "zod": "^4.3.5"
   }
 }

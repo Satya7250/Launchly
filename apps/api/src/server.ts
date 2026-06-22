@@ -9,6 +9,8 @@ import { generateOpenApiDocument, createOpenApiExpressMiddleware } from "trpc-to
 import { apiReference } from "@scalar/express-api-reference";
 
 import { serverRouter, createContext } from "@repo/trpc/server";
+import { serve } from "inngest/express";
+import { inngest, taskGenerationFunction } from "@repo/inngest";
 
 import { env } from "./env";
 
@@ -29,6 +31,14 @@ app.use(
 app.all("/api/auth/*any", toNodeHandler(auth));
 
 app.use(express.json());
+
+app.use(
+  "/api/inngest",
+  serve({
+    client: inngest,
+    functions: [taskGenerationFunction],
+  })
+);
 
 app.get("/", (req, res) => {
   return res.json({ message: "Streamyst is up and running..." });

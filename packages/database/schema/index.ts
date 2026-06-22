@@ -15,4 +15,5 @@ export * from "./review-history";
 export * from "./releases";
 export * from "./subscriptions";
 export * from "./usage";
+export * from "./task-generation-audits";
 export * from "./relations";

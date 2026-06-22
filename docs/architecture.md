@@ -159,7 +159,64 @@ sequenceDiagram
 
 ---
 
-### 4. Background Job Loop (Inngest Workflow)
+### 4. AI Task Generation Flow (Hardened)
+
+Task breakdowns are processed asynchronously with strict idempotency and concurrency locks:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Web as apps/web (Kanban)
+    participant API as apps/api (tRPC Router)
+    participant TaskSvc as packages/services (TaskService)
+    participant DB as packages/database (Neon PG)
+    participant Inngest as Inngest (Event Bus)
+    participant AI as packages/ai (OpenAI SDK)
+
+    User->>Web: Clicks "Break Down Spec Into Tasks"
+    Web->>API: Mutation task.generate({ prdId })
+    API->>TaskSvc: triggerTaskGeneration(workspaceId, prdId)
+    
+    rect rgb(20, 20, 30)
+        Note over TaskSvc,DB: Concurrency Protection Transaction
+        TaskSvc->>DB: SELECT FOR UPDATE (Locks PRD row)
+        TaskSvc->>DB: Check if any QUEUED/GENERATING audit exists
+        TaskSvc->>DB: Insert new audit record (status: QUEUED, idempotencyKey)
+    end
+    
+    TaskSvc->>Inngest: Send event: task.generate (with generationId)
+    TaskSvc-->>API: Returns { success: true, generationId }
+    API-->>Web: Returns response container
+    
+    Note over Web,API: Background Status Polling (refetchInterval: 2000ms)
+    Web->>API: Query task.getGenerationStatus({ prdId })
+    API-->>Web: Returns status: QUEUED
+
+    Note over Inngest,AI: Inngest Asynchronous Execution Loop
+    Inngest->>DB: Update status to GENERATING
+    Inngest->>DB: Check idempotency (skip if already COMPLETED)
+    Inngest->>DB: Fetch PRD details
+    Inngest->>AI: Call provider.generateTasks(prdObject)
+    AI-->>Inngest: Return task list array + usage metadata
+    
+    rect rgb(20, 20, 30)
+        Note over Inngest,DB: DB Transaction
+        Inngest->>DB: Insert tasks under nextVersion in engineering_tasks
+    end
+    
+    Inngest->>DB: Update audit to COMPLETED (promptHash, responseHash, durationMs, temperature)
+    
+    Web->>API: Query task.getGenerationStatus({ prdId })
+    API-->>Web: Returns status: COMPLETED
+    Web->>API: Query task.list({ prdId, version })
+    API-->>Web: Returns engineering task list
+    Web->>User: Renders Kanban board with generated tasks
+```
+
+---
+
+### 5. Background Job Loop (Inngest Workflow)
 
 Background event loop scheduling is decoupled using Inngest event execution hooks:
 
@@ -179,6 +236,7 @@ graph LR
         prd_job["Generate PRD Job"]
         review_job["Run AI Code Review Job"]
         billing_job["Sync Billing Plan Job"]
+        task_job["Generate Tasks Job"]
     end
 
     web -->|Trigger Event| inngest
@@ -188,6 +246,7 @@ graph LR
     inngest --> prd_job
     inngest --> review_job
     inngest --> billing_job
+    inngest --> task_job
 ```
 
 ---
@@ -201,3 +260,11 @@ Launchly utilizes modern Node.js and TypeScript configurations to ensure runtime
   - ❌ `import { env } from "./env"`
   - ✅ `import { env } from "./env.js"`
   *Note: TypeScript automatically resolves the `.js` path to the underlying `.ts` source files during type-checking and compilation while remaining compatible with standard Node.js runtimes.*
+
+---
+
+## Workspace & Tenant Isolation Flow
+All data endpoints and background jobs inside Launchly strictly enforce organization-level scoping:
+1. **API Requests:** Requests entering the tRPC engine utilize the `workspaceProcedure`. This middleware inspects the user's active session, validates that the user is a registered member of the organization, and mounts the validated workspace context on `ctx.workspace.active`.
+2. **Services & Database:** All database operations inside the `TaskService` construct queries using the Drizzle `and()` operator, matching the query filters with the active workspace's UUID (`organizationId`).
+3. **Background Jobs:** The `task.generate` event carries both the target `prdId` and the `workspaceId`. The Inngest runner queries the database with both fields, verifying that the PRD belongs to the requesting tenant workspace before triggering any LLM operations.

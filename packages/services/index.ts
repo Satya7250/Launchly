@@ -10,3 +10,4 @@ export { projectService, ProjectService } from "./project.js";
 export { clarificationService, ClarificationService } from "./clarification.js";
 export { featureRequestService, FeatureRequestService } from "./feature-request.js";
 export { prdService, PRDService } from "./prd.js";
+export { taskService, TaskService } from "./task.js";

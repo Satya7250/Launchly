@@ -72,3 +72,124 @@ Exposes authorization configurations and provider parameters.
   )
   ```
 - **Description**: Checks server environment configuration for OAuth credentials. If Google OAuth credentials are present in environment variables, it generates and returns an OAuth authorization URL allowing clients to initiate a sign-in flow.
+
+---
+
+### 3. `task` Router
+Exposes procedures for managing engineering tasks, dragging statuses/positions, and tracking generation audits.
+
+#### `generate`
+- **Type**: `mutation`
+- **Procedure Access**: `workspaceProcedure` (Workspace scoped)
+- **Input Schema**:
+  ```typescript
+  z.object({
+    prdId: z.string().uuid()
+  })
+  ```
+- **Output Schema**:
+  ```typescript
+  z.object({
+    success: z.boolean(),
+    generationId: z.string().uuid()
+  })
+  ```
+- **Errors**:
+  - `WORKSPACE_NOT_FOUND` (if PRD or Feature Request is missing)
+  - `CONFLICT` (if another task generation is already active for this PRD)
+- **Description**: Places a task generation job onto the Inngest queue, inserting an audit record with `QUEUED` status and serializing requests via workspace isolation.
+
+#### `list`
+- **Type**: `query`
+- **Procedure Access**: `workspaceProcedure`
+- **Input Schema**:
+  ```typescript
+  z.object({
+    prdId: z.string().uuid(),
+    version: z.number().optional()
+  })
+  ```
+- **Output Schema**: `z.array(engineeringTaskModel)`
+- **Description**: Returns all engineering tasks associated with a specific PRD and version. Defaults to the latest version.
+
+#### `listVersions`
+- **Type**: `query`
+- **Procedure Access**: `workspaceProcedure`
+- **Input Schema**:
+  ```typescript
+  z.object({
+    prdId: z.string().uuid()
+  })
+  ```
+- **Output Schema**: `z.array(z.number())`
+- **Description**: Lists all task iteration versions generated for a PRD, sorted in descending order.
+
+#### `updateStatus`
+- **Type**: `mutation`
+- **Procedure Access**: `workspaceProcedure`
+- **Input Schema**:
+  ```typescript
+  z.object({
+    taskId: z.string().uuid(),
+    status: z.enum(["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"])
+  })
+  ```
+- **Output Schema**: `engineeringTaskModel`
+- **Description**: Updates the workflow state of a specific engineering task. Enforces workspace ownership.
+
+#### `updatePosition`
+- **Type**: `mutation`
+- **Procedure Access**: `workspaceProcedure`
+- **Input Schema**:
+  ```typescript
+  z.object({
+    taskId: z.string().uuid(),
+    position: z.number()
+  })
+  ```
+- **Output Schema**: `engineeringTaskModel`
+- **Description**: Updates the positional index of a task within its Kanban column for persistent ordering.
+
+#### `delete`
+- **Type**: `mutation`
+- **Procedure Access**: `workspaceProcedure`
+- **Input Schema**:
+  ```typescript
+  z.object({
+    taskId: z.string().uuid()
+  })
+  ```
+- **Output Schema**: `engineeringTaskModel`
+- **Description**: Deletes an engineering task from the database.
+
+#### `getGenerationStatus`
+- **Type**: `query`
+- **Procedure Access**: `workspaceProcedure`
+- **Input Schema**:
+  ```typescript
+  z.object({
+    prdId: z.string().uuid()
+  })
+  ```
+- **Output Schema**:
+  ```typescript
+  z.object({
+    status: z.enum(["NOT_STARTED", "QUEUED", "GENERATING", "COMPLETED", "FAILED"]),
+    error: z.string().nullable(),
+    startedAt: z.date().nullable(),
+    completedAt: z.date().nullable()
+  })
+  ```
+- **Description**: Retrieves the status of the latest task breakdown generation for a PRD.
+
+#### `getGenerationHistory`
+- **Type**: `query`
+- **Procedure Access**: `workspaceProcedure`
+- **Input Schema**:
+  ```typescript
+  z.object({
+    prdId: z.string().uuid()
+  })
+  ```
+- **Output Schema**: `z.array(taskGenerationAuditModel)`
+- **Description**: Lists all generation history audit records for a PRD.

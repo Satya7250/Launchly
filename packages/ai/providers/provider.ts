@@ -1,9 +1,11 @@
 import { PRD, prdSchema } from "../schemas/prd.js";
+import { AITasksResponse, aiTasksResponseSchema } from "../schemas/task-generation.js";
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 
 export interface PRDProvider {
   generatePRD(title: string, description: string): Promise<PRD>;
+  generateTasks(prd: PRD): Promise<AITasksResponse>;
 }
 
 export class OpenAIProvider implements PRDProvider {
@@ -43,6 +45,52 @@ Ensure the output matches the required JSON structure exactly. Be extremely deta
     }
 
     return prdSchema.parse(JSON.parse(content));
+  }
+
+  async generateTasks(prd: PRD): Promise<AITasksResponse> {
+    const isOpenRouter = this.client.baseURL.includes("openrouter.ai");
+    const model = isOpenRouter ? "openai/gpt-4o-mini" : "gpt-4o-mini";
+
+    const response = await this.client.chat.completions.create({
+      model,
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert Lead Engineer and Technical Architect.
+Your task is to break down a Product Requirements Document (PRD) into discrete, actionable engineering tasks.
+For each task, provide:
+1. A concise, clear title.
+2. A detailed engineering description including steps.
+3. An estimate of the effort (e.g., "4 hours", "2 days").
+4. Implementation complexity: LOW, MEDIUM, or HIGH.
+5. Task dependencies (list of other task titles generated in this batch).
+6. Priority: LOW, MEDIUM, HIGH, or CRITICAL.
+7. Your confidence score from 0 to 100.
+
+Return the list of tasks exactly matching the required JSON format.`,
+        },
+        {
+          role: "user",
+          content: `PRD Document JSON:\n${JSON.stringify(prd, null, 2)}`,
+        },
+      ],
+      response_format: zodResponseFormat(aiTasksResponseSchema, "tasks_response"),
+    });
+
+    const content = response.choices[0]?.message.content;
+    if (!content) {
+      throw new Error("Failed to get response content from OpenAI for tasks generation");
+    }
+
+    const parsed = aiTasksResponseSchema.parse(JSON.parse(content));
+    return {
+      tasks: parsed.tasks,
+      usage: response.usage ? {
+        promptTokens: response.usage.prompt_tokens,
+        completionTokens: response.usage.completion_tokens,
+        totalTokens: response.usage.total_tokens,
+      } : undefined,
+    };
   }
 }
 
@@ -122,6 +170,54 @@ export class MockProvider implements PRDProvider {
         "95% completion rate of generated documents within the first week.",
         "Reduction in manual coordination overhead for product managers.",
       ],
+    };
+  }
+
+  async generateTasks(prd: PRD): Promise<AITasksResponse> {
+    return {
+      usage: {
+        promptTokens: 150,
+        completionTokens: 250,
+        totalTokens: 400,
+      },
+      tasks: [
+        {
+          title: "Setup Database Schemas and Migrations",
+          description: `Define and migrate database tables required for implementing: ${prd.title}. Ensure tenant isolation and appropriate indices.`,
+          estimate: "4 hours",
+          complexity: "LOW",
+          dependencies: [],
+          priority: "HIGH",
+          confidence: 95,
+        },
+        {
+          title: "Implement API Endpoints and Service Logic",
+          description: `Create service functions and API endpoints to handle functional requirements: ${prd.functionalRequirements.map(f => f.id).join(", ")}.`,
+          estimate: "1 day",
+          complexity: "MEDIUM",
+          dependencies: ["Setup Database Schemas and Migrations"],
+          priority: "HIGH",
+          confidence: 90,
+        },
+        {
+          title: "Build Frontend UI Components",
+          description: `Implement responsive user interface for ${prd.title} with Shadcn UI and Tailwind. Connect with frontend state/mutations.`,
+          estimate: "2 days",
+          complexity: "MEDIUM",
+          dependencies: ["Implement API Endpoints and Service Logic"],
+          priority: "HIGH",
+          confidence: 85,
+        },
+        {
+          title: "Add Validation and Error States",
+          description: `Ensure proper error boundaries, loading skeletons, and validation for user inputs. Address edge case: ${prd.edgeCases?.[0] || 'Invalid inputs'}.`,
+          estimate: "3 hours",
+          complexity: "LOW",
+          dependencies: ["Build Frontend UI Components"],
+          priority: "MEDIUM",
+          confidence: 95,
+        }
+      ]
     };
   }
 }

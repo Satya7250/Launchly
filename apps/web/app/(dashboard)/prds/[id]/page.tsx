@@ -23,9 +23,11 @@ import {
   Printer,
   ChevronRight,
   ExternalLink,
+  Workflow,
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate as formatUtilityDate } from "~/lib/utils";
+import { KanbanBoard } from "~/components/KanbanBoard";
 
 export default function PRDDetailPage() {
   const params = useParams();
@@ -176,7 +178,7 @@ export default function PRDDetailPage() {
         {/* Spec Content tabs (radix tabs) */}
         <div className="lg:col-span-3">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-card/40 border border-border/40 p-1 rounded-xl h-11 print:hidden">
+            <TabsList className="grid w-full grid-cols-4 bg-card/40 border border-border/40 p-1 rounded-xl h-11 print:hidden">
               <TabsTrigger value="context" className="h-9">
                 <Bookmark className="h-3.5 w-3.5" /> Context & Goals
               </TabsTrigger>
@@ -185,6 +187,9 @@ export default function PRDDetailPage() {
               </TabsTrigger>
               <TabsTrigger value="strategy" className="h-9">
                 <Sparkles className="h-3.5 w-3.5" /> Scope & Risks
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className="h-9">
+                <Workflow className="h-3.5 w-3.5" /> Engineering Tasks
               </TabsTrigger>
             </TabsList>
 
@@ -434,6 +439,11 @@ export default function PRDDetailPage() {
                   </ul>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* TAB 4: Tasks & Board */}
+            <TabsContent value="tasks" className="mt-6 space-y-6">
+              <KanbanBoard prdId={id} />
             </TabsContent>
           </Tabs>
         </div>

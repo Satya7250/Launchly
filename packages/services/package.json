@@ -39,6 +39,7 @@
     "@repo/ai": "workspace:*",
     "@repo/auth": "workspace:*",
     "@repo/database": "workspace:*",
+    "@repo/inngest": "workspace:*",
     "@repo/logger": "workspace:*",
     "@repo/shared": "workspace:*",
     "google-auth-library": "^10.5.0",

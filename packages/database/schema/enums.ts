@@ -14,6 +14,7 @@ export const featureRequestStatusEnum = pgEnum("feature_request_status", [
 ]);
 
 export const taskStatusEnum = pgEnum("task_status", [
+  "BACKLOG",
   "TODO",
   "IN_PROGRESS",
   "IN_REVIEW",
@@ -53,4 +54,10 @@ export const featureRequestSourceEnum = pgEnum("feature_request_source", [
   "SUPPORT",
 ]);
 
-
+export const taskGenerationStatusEnum = pgEnum("task_generation_status", [
+  "NOT_STARTED",
+  "QUEUED",
+  "GENERATING",
+  "COMPLETED",
+  "FAILED",
+]);

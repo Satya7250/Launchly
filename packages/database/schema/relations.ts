@@ -15,6 +15,7 @@ import { reviewHistoryTable } from "./review-history";
 import { releasesTable } from "./releases";
 import { subscriptionsTable } from "./subscriptions";
 import { usageTable } from "./usage";
+import { taskGenerationAuditsTable } from "./task-generation-audits";
 
 export const organizationsRelations = relations(organizationsTable, ({ many, one }) => ({
   memberships: many(membershipsTable),
@@ -31,6 +32,7 @@ export const organizationsRelations = relations(organizationsTable, ({ many, one
   releases: many(releasesTable),
   subscription: one(subscriptionsTable),
   usages: many(usageTable),
+  taskGenerationAudits: many(taskGenerationAuditsTable),
 }));
 
 export const usersRelations = relations(usersTable, ({ many }) => ({
@@ -82,6 +84,7 @@ export const projectsRelations = relations(projectsTable, ({ one, many }) => ({
   }),
   repositories: many(repositoriesTable),
   featureRequests: many(featureRequestsTable),
+  engineeringTasks: many(engineeringTasksTable),
 }));
 
 export const repositoriesRelations = relations(repositoriesTable, ({ one }) => ({
@@ -132,6 +135,7 @@ export const prdsRelations = relations(prdsTable, ({ one, many }) => ({
   }),
   engineeringTasks: many(engineeringTasksTable),
   pullRequests: many(pullRequestsTable),
+  taskGenerationAudits: many(taskGenerationAuditsTable),
 }));
 
 export const engineeringTasksRelations = relations(engineeringTasksTable, ({ one }) => ({
@@ -142,6 +146,10 @@ export const engineeringTasksRelations = relations(engineeringTasksTable, ({ one
   prd: one(prdsTable, {
     fields: [engineeringTasksTable.prdId],
     references: [prdsTable.id],
+  }),
+  project: one(projectsTable, {
+    fields: [engineeringTasksTable.projectId],
+    references: [projectsTable.id],
   }),
   assignee: one(usersTable, {
     fields: [engineeringTasksTable.assigneeId],
@@ -219,5 +227,16 @@ export const usageRelations = relations(usageTable, ({ one }) => ({
   organization: one(organizationsTable, {
     fields: [usageTable.organizationId],
     references: [organizationsTable.id],
+  }),
+}));
+
+export const taskGenerationAuditsRelations = relations(taskGenerationAuditsTable, ({ one }) => ({
+  organization: one(organizationsTable, {
+    fields: [taskGenerationAuditsTable.organizationId],
+    references: [organizationsTable.id],
+  }),
+  prd: one(prdsTable, {
+    fields: [taskGenerationAuditsTable.prdId],
+    references: [prdsTable.id],
   }),
 }));

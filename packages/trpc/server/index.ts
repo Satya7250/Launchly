@@ -6,6 +6,7 @@ import { workspaceRouter } from "./routes/workspace/route.js";
 import { projectRouter } from "./routes/project/route.js";
 import { featureRequestRouter } from "./routes/feature-request/route.js";
 import { prdRouter } from "./routes/prd/route.js";
+import { taskRouter } from "./routes/task/route.js";
 
 export const serverRouter = router({
   health: healthRouter,
@@ -14,6 +15,7 @@ export const serverRouter = router({
   project: projectRouter,
   featureRequest: featureRequestRouter,
   prd: prdRouter,
+  task: taskRouter,
 });
 
 

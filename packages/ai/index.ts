@@ -4,6 +4,8 @@ import { OpenAIProvider, MockProvider, PRDProvider } from "./providers/provider.
 export { env } from "./env.js";
 export { prdSchema } from "./schemas/prd.js";
 export type { PRD } from "./schemas/prd.js";
+export { aiTaskSchema, aiTasksResponseSchema } from "./schemas/task-generation.js";
+export type { AITask, AITasksResponse } from "./schemas/task-generation.js";
 export * from "./providers/provider.js";
 
 export function getPRDProvider(): PRDProvider {

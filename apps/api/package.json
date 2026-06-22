@@ -25,6 +25,7 @@
   "dependencies": {
     "better-auth": "^1.6.20",
     "@repo/auth": "workspace:*",
+    "@repo/inngest": "workspace:*",
     "@repo/trpc": "workspace:*",
     "@repo/logger": "workspace:*",
     "@repo/shared": "workspace:*",
@@ -32,6 +33,7 @@
     "@trpc/server": "^11.8.1",
     "cors": "^2.8.5",
     "express": "^5.2.1",
+    "inngest": "^4.7.0",
     "trpc-to-openapi": "^3.1.0",
     "zod": "^4.3.5"
   }
