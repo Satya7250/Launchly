@@ -8,7 +8,7 @@ import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Spinner } from "~/components/ui/spinner";
 import { toast } from "sonner";
-import { ArrowLeft, Brain, Calendar, Trash2, CheckCircle2, AlertTriangle, Play, HelpCircle, Layers } from "lucide-react";
+import { ArrowLeft, Brain, Calendar, Trash2, CheckCircle2, AlertTriangle, Play, HelpCircle, Layers, RefreshCw, FileText } from "lucide-react";
 import Link from "next/link";
 import { formatDate as formatUtilityDate } from "~/lib/utils";
 
@@ -24,6 +24,11 @@ export default function FeatureRequestDetailPage() {
   // Queries
   const { data: requestEnvelope, isLoading, refetch } = trpc.featureRequest.byId.useQuery({ id });
   const req = requestEnvelope?.data;
+
+  const { data: latestPrdEnvelope } = trpc.prd.byFeatureRequestId.useQuery(
+    { featureRequestId: id },
+    { enabled: req?.status === "PRD_GENERATED" }
+  );
 
   // Mutations
   const clarificationMutation = trpc.featureRequest.requestClarification.useMutation();
@@ -111,13 +116,22 @@ export default function FeatureRequestDetailPage() {
     }
   };
 
-  const handleSimulatePrd = async () => {
+  const [isGeneratingPrd, setIsGeneratingPrd] = useState(false);
+  const generatePrdMutation = trpc.prd.generate.useMutation();
+
+  const handleGeneratePrd = async () => {
+    setIsGeneratingPrd(true);
+    const toastId = toast.loading("AI is analyzing requirements and generating PRD...");
     try {
-      await updateStatusMutation.mutateAsync({ id, status: "PRD_GENERATED" } as any);
-      toast.success("PRD generated successfully!");
+      const response = await generatePrdMutation.mutateAsync({ featureRequestId: id });
+      const newPrd = response.data;
+      toast.success("PRD generated successfully!", { id: toastId });
       await refetch();
+      router.push(`/prds/${newPrd.id}`);
     } catch (err: any) {
-      toast.error(err.message || "Failed to simulate PRD generation");
+      toast.error(err.message || "Failed to generate PRD", { id: toastId });
+    } finally {
+      setIsGeneratingPrd(false);
     }
   };
 
@@ -373,15 +387,48 @@ export default function FeatureRequestDetailPage() {
                   </Button>
                 )}
 
-                {/* Simulate PRD Generation if READY_FOR_PRD */}
+                {/* Generate PRD if READY_FOR_PRD */}
                 {req.status === "READY_FOR_PRD" && (
                   <Button
-                    onClick={handleSimulatePrd}
-                    className="w-full text-xs"
-                    variant="secondary"
+                    onClick={handleGeneratePrd}
+                    className="w-full text-xs font-semibold bg-gradient-to-r from-primary to-primary/80"
+                    disabled={isGeneratingPrd}
                   >
-                    Simulate PRD Generation
+                    {isGeneratingPrd ? (
+                      <>
+                        <Spinner className="mr-2 h-3.5 w-3.5 animate-spin" /> Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Brain className="mr-2 h-3.5 w-3.5" /> Generate PRD Spec
+                      </>
+                    )}
                   </Button>
+                )}
+
+                {/* View/Regenerate PRD if PRD_GENERATED */}
+                {req.status === "PRD_GENERATED" && (
+                  <div className="space-y-2">
+                    {latestPrdEnvelope?.data ? (
+                      <Button asChild className="w-full text-xs font-semibold" variant="secondary">
+                        <Link href={`/prds/${latestPrdEnvelope.data.id}`} className="gap-2">
+                          <FileText className="h-3.5 w-3.5 text-primary" /> View Generated PRD (v{latestPrdEnvelope.data.version})
+                        </Link>
+                      </Button>
+                    ) : (
+                      <div className="flex justify-center py-2">
+                        <Spinner className="h-4 w-4" />
+                      </div>
+                    )}
+                    <Button
+                      onClick={handleGeneratePrd}
+                      className="w-full text-xs font-semibold"
+                      variant="outline"
+                      disabled={isGeneratingPrd}
+                    >
+                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Regenerate PRD
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardContent>

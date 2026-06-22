@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@repo/shared": "workspace:*",
+    "openai": "^6.44.0",
     "zod": "^4.3.5"
   }
 }

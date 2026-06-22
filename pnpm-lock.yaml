@@ -292,6 +292,9 @@ importers:
       '@repo/shared':
         specifier: workspace:*
         version: link:../shared
+      openai:
+        specifier: ^6.44.0
+        version: 6.44.0(zod@4.3.5)
       zod:
         specifier: ^4.3.5
         version: 4.3.5
@@ -494,6 +497,9 @@ importers:
 
   packages/services:
     dependencies:
+      '@repo/ai':
+        specifier: workspace:*
+        version: link:../ai
       '@repo/auth':
         specifier: workspace:*
         version: link:../auth
@@ -4020,6 +4026,17 @@ packages:
 
   one-time@1.0.0:
     resolution: {integrity: sha512-5DXOiRKwuSEcQ/l0kGCF6Q3jcADFv5tSmRaJck/OqkVFcOzutB134KRSfF0xDrL39MNnqxbHBbUUcjZIhTgb2g==}
+
+  openai@6.44.0:
+    resolution: {integrity: sha512-09/gH+8jH0RgUwsgWHAaxsKGRT5zVZ95IaJUnqAWj6XejIBmnFRwq2WUIF37VtDEsmGrtPmvCs5+yBSeZGWvkA==}
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   openapi3-ts@4.4.0:
     resolution: {integrity: sha512-9asTNB9IkKEzWMcHmVZE7Ts3kC9G7AFHfs8i7caD8HbI76gEjdkId4z/AkP83xdZsH7PLAnnbl47qZkXuxpArw==}
@@ -8067,6 +8084,10 @@ snapshots:
   one-time@1.0.0:
     dependencies:
       fn.name: 1.1.0
+
+  openai@6.44.0(zod@4.3.5):
+    optionalDependencies:
+      zod: 4.3.5
 
   openapi3-ts@4.4.0:
     dependencies:

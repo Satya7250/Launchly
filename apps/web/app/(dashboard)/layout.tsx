@@ -35,6 +35,7 @@ import {
   Shield,
   HelpCircle,
   Menu,
+  Brain,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -151,6 +152,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link href="/feature-requests" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-all">
               <FileText className="h-4 w-4" />
               <span>Feature Requests</span>
+            </Link>
+            <Link href="/prds" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-all">
+              <Brain className="h-4 w-4" />
+              <span>PRDs</span>
             </Link>
             <div className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-all cursor-not-allowed">
               <CheckSquare className="h-4 w-4" />

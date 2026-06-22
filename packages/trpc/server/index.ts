@@ -5,6 +5,7 @@ import { authRouter } from "./routes/auth/route.js";
 import { workspaceRouter } from "./routes/workspace/route.js";
 import { projectRouter } from "./routes/project/route.js";
 import { featureRequestRouter } from "./routes/feature-request/route.js";
+import { prdRouter } from "./routes/prd/route.js";
 
 export const serverRouter = router({
   health: healthRouter,
@@ -12,7 +13,9 @@ export const serverRouter = router({
   workspace: workspaceRouter,
   project: projectRouter,
   featureRequest: featureRequestRouter,
+  prd: prdRouter,
 });
+
 
 export { createContext } from "./context.js";
 export type ServerRouter = typeof serverRouter;

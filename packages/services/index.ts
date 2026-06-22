@@ -9,4 +9,4 @@ export { authService, AuthService } from "./auth.js";
 export { projectService, ProjectService } from "./project.js";
 export { clarificationService, ClarificationService } from "./clarification.js";
 export { featureRequestService, FeatureRequestService } from "./feature-request.js";
-
+export { prdService, PRDService } from "./prd.js";

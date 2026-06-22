@@ -84,6 +84,54 @@ export class AuditService {
       }
     );
   }
+
+  public logPRDGenerated(
+    userId: string,
+    workspaceId: string,
+    featureRequestId: string,
+    prdId: string,
+    version: number,
+    requestId: string
+  ): void {
+    logger.info(
+      `[AUDIT] PRD Generated - FeatureRequestID: ${featureRequestId}, PRDID: ${prdId}, Version: ${version} by UserID: ${userId}`,
+      {
+        event: "PRD_GENERATED",
+        userId,
+        workspaceId,
+        featureRequestId,
+        prdId,
+        version,
+        requestId,
+        timestamp: Date.now(),
+      }
+    );
+  }
+
+  public logPRDRegenerated(
+    userId: string,
+    workspaceId: string,
+    featureRequestId: string,
+    prdId: string,
+    oldVersion: number,
+    newVersion: number,
+    requestId: string
+  ): void {
+    logger.info(
+      `[AUDIT] PRD Regenerated - FeatureRequestID: ${featureRequestId}, New PRDID: ${prdId}, Version: ${newVersion} (old: ${oldVersion}) by UserID: ${userId}`,
+      {
+        event: "PRD_REGENERATED",
+        userId,
+        workspaceId,
+        featureRequestId,
+        prdId,
+        oldVersion,
+        newVersion,
+        requestId,
+        timestamp: Date.now(),
+      }
+    );
+  }
 }
 
 export const auditService = new AuditService();

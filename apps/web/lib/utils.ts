@@ -14,6 +14,7 @@ export function formatDate(dateInput: string | Date | number, options?: Intl.Dat
       year: "numeric",
       month: "short",
       day: "numeric",
+      timeZone: "UTC",
       ...options,
     };
     

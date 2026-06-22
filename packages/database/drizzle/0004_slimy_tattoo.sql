@@ -1,0 +1,1 @@
+ALTER TABLE "prds" ADD COLUMN "content" jsonb NOT NULL;

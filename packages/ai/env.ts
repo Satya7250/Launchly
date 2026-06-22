@@ -3,6 +3,6 @@ import { createEnv } from "@repo/shared/env";
 
 export const env = createEnv(
   z.object({
-    OPENAI_API_KEY: z.string(),
+    OPENAI_API_KEY: z.string().optional(),
   })
 );
