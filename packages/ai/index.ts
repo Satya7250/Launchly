@@ -6,6 +6,8 @@ export { prdSchema } from "./schemas/prd.js";
 export type { PRD } from "./schemas/prd.js";
 export { aiTaskSchema, aiTasksResponseSchema } from "./schemas/task-generation.js";
 export type { AITask, AITasksResponse } from "./schemas/task-generation.js";
+export { aiReviewFindingSchema, aiReviewResponseSchema } from "./schemas/ai-review.js";
+export type { AIReviewFinding, AIReviewResponse, AIReviewInput, AIReviewResult } from "./schemas/ai-review.js";
 export * from "./providers/provider.js";
 
 export function getPRDProvider(): PRDProvider {

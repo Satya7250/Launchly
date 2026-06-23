@@ -8,6 +8,7 @@ import { featureRequestRouter } from "./routes/feature-request/route.js";
 import { prdRouter } from "./routes/prd/route.js";
 import { taskRouter } from "./routes/task/route.js";
 import { githubRouter } from "./routes/github/route.js";
+import { reviewRouter } from "./routes/review/route.js";
 
 export const serverRouter = router({
   health: healthRouter,
@@ -18,6 +19,7 @@ export const serverRouter = router({
   prd: prdRouter,
   task: taskRouter,
   github: githubRouter,
+  review: reviewRouter,
 });
 
 

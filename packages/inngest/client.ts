@@ -23,6 +23,30 @@ export const githubPullRequestReceivedEvent = eventType("github.pull_request.rec
   }),
 });
 
+export const pullRequestReviewGenerateEvent = eventType(
+  "pull_request.review.generate",
+  {
+    schema: z.object({
+      workspaceId: z.string().uuid(),
+      pullRequestId: z.string().uuid(),
+      reviewId: z.string().uuid(),
+    }),
+  }
+);
+
+export const pullRequestReviewCompletedEvent = eventType(
+  "pull_request.review.completed",
+  {
+    schema: z.object({
+      workspaceId: z.string().uuid(),
+      pullRequestId: z.string().uuid(),
+      reviewId: z.string().uuid(),
+      version: z.number().int(),
+      status: z.enum(["COMPLETED", "FAILED"]),
+    }),
+  }
+);
+
 export const inngest = new Inngest({
   id: "launchly",
   eventKey: env.INNGEST_EVENT_KEY,

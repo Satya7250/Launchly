@@ -1,11 +1,13 @@
 import { PRD, prdSchema } from "../schemas/prd.js";
 import { AITasksResponse, aiTasksResponseSchema } from "../schemas/task-generation.js";
+import { AIReviewInput, AIReviewResult, aiReviewResponseSchema } from "../schemas/ai-review.js";
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 
 export interface PRDProvider {
   generatePRD(title: string, description: string): Promise<PRD>;
   generateTasks(prd: PRD): Promise<AITasksResponse>;
+  reviewPullRequest(input: AIReviewInput): Promise<AIReviewResult>;
 }
 
 export class OpenAIProvider implements PRDProvider {
@@ -90,6 +92,72 @@ Return the list of tasks exactly matching the required JSON format.`,
         completionTokens: response.usage.completion_tokens,
         totalTokens: response.usage.total_tokens,
       } : undefined,
+    };
+  }
+
+  async reviewPullRequest(input: AIReviewInput): Promise<AIReviewResult> {
+    const isOpenRouter = this.client.baseURL.includes("openrouter.ai");
+    const model = isOpenRouter ? "openai/gpt-4o-mini" : "gpt-4o-mini";
+    const promptVersion = "v1";
+
+    const systemPrompt = `You are an expert Staff Engineer performing a thorough pull request review.
+You will be given a pull request diff, the linked PRD requirements, and the planned engineering tasks.
+Provide a structured, objective review with concrete findings. Be precise and actionable.
+Score each dimension from 0 to 100 and give a clear recommendation.`;
+
+    const userPrompt = `## Pull Request
+Title: ${input.pullRequest.title}
+Author: ${input.pullRequest.author}
+Branch: ${input.pullRequest.branch ?? "unknown"} → ${input.pullRequest.baseBranch ?? "main"}
+
+## Changed Files (${input.files.length} total)
+${input.files
+  .slice(0, 30)
+  .map(
+    (f) =>
+      `### ${f.filename} [${f.status}] +${f.additions}/-${f.deletions}\n${f.patch ? f.patch.slice(0, 3000) : "(patch unavailable)"}`
+  )
+  .join("\n\n")}
+
+## Linked PRD
+${input.prd
+  ? `Problem: ${input.prd.problemStatement ?? "-"}\nGoals: ${(input.prd.goals ?? []).join("; ")}`
+  : "No PRD linked."}
+
+## Engineering Tasks (${input.tasks.length} total)
+${input.tasks
+  .slice(0, 20)
+  .map((t) => `- [${t.status}] ${t.title}`)
+  .join("\n")}`;
+
+    const response = await this.client.chat.completions.create({
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+    });
+
+    const content = response.choices[0]?.message.content;
+    if (!content) {
+      throw new Error("Failed to get AI review response from OpenAI");
+    }
+
+    const parsed = aiReviewResponseSchema.parse(JSON.parse(content));
+
+    return {
+      review: parsed,
+      provider: isOpenRouter ? "openrouter" : "openai",
+      model,
+      promptVersion,
+      usage: response.usage
+        ? {
+            promptTokens: response.usage.prompt_tokens,
+            completionTokens: response.usage.completion_tokens,
+            totalTokens: response.usage.total_tokens,
+          }
+        : undefined,
     };
   }
 }
@@ -218,6 +286,45 @@ export class MockProvider implements PRDProvider {
           confidence: 95,
         }
       ]
+    };
+  }
+
+  async reviewPullRequest(input: AIReviewInput): Promise<AIReviewResult> {
+    const filesReviewed = input.files.slice(0, 5);
+    return {
+      provider: "mock",
+      model: "mock",
+      promptVersion: "v1",
+      usage: { promptTokens: 500, completionTokens: 300, totalTokens: 800 },
+      review: {
+        overallScore: 78,
+        prdScore: input.prd ? 82 : 50,
+        taskCoverageScore: input.tasks.length > 0 ? 75 : 40,
+        securityScore: 85,
+        performanceScore: 80,
+        architectureScore: 72,
+        summary:
+          `Mock review for PR #${input.pullRequest.number}: "${input.pullRequest.title}". ` +
+          `${filesReviewed.length} file(s) analysed. Overall the changes look solid with minor issues.`,
+        recommendation: "APPROVE",
+        findings: [
+          {
+            severity: "MEDIUM",
+            category: "STYLE",
+            title: "Missing inline documentation",
+            description: "Several exported functions lack JSDoc comments.",
+            suggestion: "Add JSDoc comments to all public API functions.",
+            filePath: filesReviewed[0]?.filename,
+          },
+          {
+            severity: "LOW",
+            category: "TEST_COVERAGE",
+            title: "No unit tests added",
+            description: "The new service functions are not covered by unit tests.",
+            suggestion: "Add unit tests using Vitest or Jest for the new service methods.",
+          },
+        ],
+      },
     };
   }
 }

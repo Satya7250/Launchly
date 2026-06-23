@@ -23,11 +23,11 @@ Kanban Board (Optimistic Updates)
       ↓
 GitHub Integration (Webhook Triggered)
       ↓
-(Upcoming) AI Review
+AI Review
       ↓
-(Upcoming) Human Approval
+Human Approval
       ↓
-(Upcoming) Shipped
+Shipped
 ```
 
 ---
@@ -120,12 +120,17 @@ erDiagram
     organizations ||--o{ pull_requests : tracks
     organizations ||--o{ task_generation_audits : logs
     organizations ||--o{ engineering_tasks : tracks
+    organizations ||--o{ ai_reviews : has
+    organizations ||--o{ ai_review_audits : logs
 
     github_installations ||--o{ repositories : links
     repositories ||--o{ pull_requests : contains
     repositories ||--o{ github_sync_audits : logs
     pull_requests ||--o{ pull_request_files : modifies
     pull_requests ||--o{ github_sync_audits : logs
+    pull_requests ||--o{ ai_reviews : reviewed
+    ai_reviews ||--o{ ai_review_findings : has
+    ai_reviews ||--o{ ai_review_audits : audited
 ```
 
 ### Tables Reference
@@ -280,6 +285,9 @@ GITHUB_WEBHOOK_SECRET=your_webhook_hmac_secret
 # Inngest Background Queue Configurations
 INNGEST_EVENT_KEY=your_inngest_event_key
 INNGEST_SIGNING_KEY=your_inngest_signing_key
+
+# AI Review Configuration
+NEXT_PUBLIC_AI_REVIEW_POLL_MS=2000 # Polling interval in ms
 ```
 
 ---
@@ -389,7 +397,33 @@ sequenceDiagram
     Web->>Web: Renders Kanban board
 ```
 
-### 5. Complete Product Flow
+### 5. AI Review Flow
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Workspace User
+    participant Web as apps/web (Frontend)
+    participant API as apps/api (tRPC)
+    participant DB as packages/database (Neon PG)
+    participant Inngest as Inngest Background
+    participant AI as packages/ai (OpenAI / Mock)
+    User->>Web: Clicks "Generate AI Review"
+    Web->>API: Mutation review.generate({ pullRequestId })
+    API->>DB: Check for existing pending review
+    API->>DB: Insert pending review and audit
+    API->>Inngest: Send event: pull_request.review.generate
+    API-->>Web: Returns created review
+    Note over Web,API: Web polls review.latest every 2s
+    
+    Inngest->>DB: Fetch PR, files, PRD, tasks
+    Inngest->>AI: Call provider.reviewPullRequest(...)
+    AI-->>Inngest: Returns review, findings, token usage
+    Inngest->>DB: Update review, insert findings, update audit
+    Inngest->>DB: Update PR status to AI_REVIEW_COMPLETED
+    Inngest->>Inngest: Emit pull_request.review.completed
+```
+
+### 6. Complete Product Flow
 ```mermaid
 graph TD
     FR[Feature Request Entered] -->|AI Scans Requirements| Clarify{Clarification Needed?}
@@ -402,9 +436,9 @@ graph TD
     Kanban -->|Write Code & Push PR| Webhook[GitHub Webhook Received]
     Webhook -->|Verify Signature & Idempotency| Ingest[Fetch PR Metadata & Modified Files]
     Ingest -->|Save Files & Lazy Load Diff| PRDetail[Render PR detail & file diffs]
-    PRDetail -->|Start Code Evaluation| AIReview["(Upcoming) AI Code Review"]
-    AIReview -->|Review Score & Inline Suggestion| Human["(Upcoming) Human Approval Gates"]
-    Human -->|Approve & Release| Ship["(Upcoming) Shipped to Production"]
+    PRDetail -->|Start Code Evaluation| AIReview[AI Code Review]
+    AIReview -->|Review Score & Inline Suggestion| Human[Human Approval Gates]
+    Human -->|Approve & Release| Ship[Shipped to Production]
 ```
 
 ---
