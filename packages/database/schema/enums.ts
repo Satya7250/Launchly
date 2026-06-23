@@ -61,3 +61,15 @@ export const taskGenerationStatusEnum = pgEnum("task_generation_status", [
   "COMPLETED",
   "FAILED",
 ]);
+
+export const pullRequestProcessingStatusEnum = pgEnum("pull_request_processing_status", [
+  "RECEIVED",
+  "PROCESSING",
+  "READY_FOR_AI_REVIEW",
+  "FAILED",
+  "AI_REVIEWING",
+  "AI_REVIEW_COMPLETED",
+  "HUMAN_APPROVED",
+  "SHIPPED",
+]);
+

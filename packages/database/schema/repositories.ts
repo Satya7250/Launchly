@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, bigint, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, timestamp, bigint, index, unique, boolean } from "drizzle-orm/pg-core";
 import { organizationsTable } from "./organizations";
 import { projectsTable } from "./projects";
 import { githubInstallationsTable } from "./github-installations";
@@ -11,13 +11,16 @@ export const repositoriesTable = pgTable(
       .references(() => organizationsTable.id, { onDelete: "cascade" })
       .notNull(),
     projectId: uuid("project_id")
-      .references(() => projectsTable.id, { onDelete: "cascade" })
-      .notNull(),
+      .references(() => projectsTable.id, { onDelete: "cascade" }),
     githubInstallationId: uuid("github_installation_id")
       .references(() => githubInstallationsTable.id, { onDelete: "set null" }),
     name: varchar("name", { length: 255 }).notNull(),
     fullName: varchar("full_name", { length: 255 }).notNull(),
     githubRepoId: bigint("github_repo_id", { mode: "number" }).notNull(),
+    owner: varchar("owner", { length: 255 }),
+    defaultBranch: varchar("default_branch", { length: 255 }),
+    private: boolean("private"),
+    installationId: bigint("installation_id", { mode: "number" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -34,3 +37,4 @@ export const repositoriesTable = pgTable(
 
 export type SelectRepository = typeof repositoriesTable.$inferSelect;
 export type InsertRepository = typeof repositoriesTable.$inferInsert;
+

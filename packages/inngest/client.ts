@@ -11,7 +11,20 @@ export const taskGenerateEvent = eventType("task.generate", {
   }),
 });
 
+export const githubPullRequestReceivedEvent = eventType("github.pull_request.received", {
+  schema: z.object({
+    workspaceId: z.string().uuid(),
+    repositoryId: z.string().uuid(),
+    installationId: z.number(),
+    pullRequestNumber: z.number(),
+    githubPullRequestId: z.number(),
+    action: z.string(),
+    auditId: z.string().uuid().optional(),
+  }),
+});
+
 export const inngest = new Inngest({
   id: "launchly",
   eventKey: env.INNGEST_EVENT_KEY,
 });
+

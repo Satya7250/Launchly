@@ -6,7 +6,7 @@ This document describes the schema, constraints, relationships, and indices of t
 
 ## Database Overview
 
-The Launchly database manages user accounts, multi-tenant organizations, feature requests, pull requests, AI automated reviews, developer tasks, subscription plans, and system usage.
+The Launchly database manages user accounts, multi-tenant organizations, feature requests, repositories, pull requests, files list, sync audits, developer tasks, subscription plans, and system usage logs.
 
 ---
 
@@ -25,16 +25,13 @@ erDiagram
 
     organizations ||--o{ memberships : has
     organizations ||--o{ github_installations : contains
+    organizations ||--o{ github_sync_audits : records
     organizations ||--o{ projects : owns
     organizations ||--o{ repositories : includes
     organizations ||--o{ feature_requests : submits
     organizations ||--o{ prds : has
     organizations ||--o{ engineering_tasks : tracks
-    organizations ||--o{ pull_requests : reviews
-    organizations ||--o{ ai_reviews : logs
-    organizations ||--o{ review_issues : reports
-    organizations ||--o{ review_history : holds
-    organizations ||--o{ releases : deploys
+    organizations ||--o{ pull_requests : tracks
     organizations ||--|| subscriptions : has
     organizations ||--o{ usage : tracks
 
@@ -48,11 +45,11 @@ erDiagram
     prds ||--o{ engineering_tasks : outlines
     prds ||--o{ pull_requests : resolves
 
-    pull_requests ||--o{ ai_reviews : triggers
-    pull_requests ||--o{ review_history : logs
-    pull_requests ||--o{ releases : targets
-
-    ai_reviews ||--o{ review_issues : flags
+    repositories ||--o{ pull_requests : has
+    repositories ||--o{ github_sync_audits : logs
+    
+    pull_requests ||--o{ pull_request_files : contains
+    pull_requests ||--o{ github_sync_audits : logs
 ```
 
 ---
@@ -169,7 +166,7 @@ erDiagram
 | `deleted_at` | timestamp | Soft-deletion timestamp |
 
 #### Relationships
-- One-to-Many: `memberships`, `github_installations`, `projects`, `repositories`, `feature_requests`, `prds`, `engineering_tasks`, `pull_requests`, `ai_reviews`, `review_issues`, `review_history`, `releases`, `usage`.
+- One-to-Many: `memberships`, `github_installations`, `github_sync_audits`, `projects`, `repositories`, `feature_requests`, `prds`, `engineering_tasks`, `pull_requests`, `usages`.
 - One-to-One: `subscriptions`
 
 ---
@@ -208,7 +205,7 @@ erDiagram
 | `id` | uuid | Installation record ID |
 | `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
 | `installation_id` | bigint (number) | GitHub App installation ID |
-| `account_login` | varchar(255) | GitHub account slug |
+| `account_login` | varchar(255) | GitHub account login name |
 | `account_type` | varchar(50) | GitHub account type (User/Organization) |
 | `created_at` | timestamp | Creation timestamp |
 | `updated_at` | timestamp | Update timestamp |
@@ -248,7 +245,7 @@ erDiagram
 ---
 
 ### repositories
-**Purpose**: Links specific GitHub repositories to active Launchly projects.  
+**Purpose**: Links specific GitHub repositories to active workspaces.  
 **Primary Key**: `id` (uuid, defaultRandom)
 
 #### Columns
@@ -256,11 +253,15 @@ erDiagram
 |---|---|---|
 | `id` | uuid | Repository ID |
 | `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
-| `project_id` | uuid | Reference to `projects.id` (cascade onDelete) |
+| `project_id` | uuid | Reference to `projects.id` (cascade onDelete, Nullable) |
 | `github_installation_id` | uuid | Reference to `github_installations.id` (set null onDelete) |
 | `name` | varchar(255) | Repository name |
-| `full_name` | varchar(255) | Full GitHub repository pathway (`owner/repo`) |
-| `github_repo_id` | bigint (number) | GitHub repository identifier |
+| `full_name` | varchar(255) | Full GitHub repository path (`owner/repo`) |
+| `github_repo_id` | bigint (number) | GitHub repository ID |
+| `owner` | varchar(255) | Repository owner account name |
+| `default_branch` | varchar(255) | Default branch name (e.g. `main`) |
+| `private` | boolean | Privacy flag |
+| `installation_id` | bigint (number) | Mapped GitHub installation ID |
 | `created_at` | timestamp | Creation timestamp |
 | `updated_at` | timestamp | Update timestamp |
 
@@ -272,11 +273,12 @@ erDiagram
 
 #### Relationships
 - Many-to-One: `organizations`, `projects`, `github_installations`
+- One-to-Many: `pull_requests`, `github_sync_audits`
 
 ---
 
 ### feature_requests
-**Purpose**: Client-facing feedback or request logs requiring PRD creation.  
+**Purpose**: User requirements or request logs requiring PRD creation.  
 **Primary Key**: `id` (uuid, defaultRandom)
 
 #### Columns
@@ -299,9 +301,6 @@ erDiagram
 - Index: `feature_requests_org_id_idx` on `organization_id` where `deleted_at IS NULL`.
 - Index: `feature_requests_project_id_idx` on `project_id` where `deleted_at IS NULL`.
 - Index: `feature_requests_status_idx` on `status`.
-- Index: `feature_requests_created_by_idx` on `created_by_user_id`.
-- Index: `feature_requests_assigned_to_idx` on `assigned_to_user_id`.
-- Index: `feature_requests_priority_idx` on `priority`.
 
 #### Relationships
 - Many-to-One: `organizations`, `projects`, `users`
@@ -336,12 +335,12 @@ erDiagram
 
 #### Relationships
 - Many-to-One: `organizations`, `feature_requests`
-- One-to-Many: `engineering_tasks`, `pull_requests`
+- One-to-Many: `engineering_tasks`, `pull_requests`, `task_generation_audits`
 
 ---
 
 ### engineering_tasks
-**Purpose**: Granular deliverables mapped to a specific PRD.  
+**Purpose**: Granular task cards mapped to a specific PRD.  
 **Primary Key**: `id` (uuid, defaultRandom)
 
 #### Columns
@@ -357,214 +356,17 @@ erDiagram
 | `assignee_id` | uuid | Assigned developer (set null onDelete) |
 | `position` | integer | Positional sorting index within a status column |
 | `version` | integer | Task breakdown generation version (default 1) |
-| `metadata` | jsonb | AI metadata containing estimate, complexity, priority, confidence, and dependencies |
+| `metadata` | jsonb | AI estimations (estimate, complexity, priority, confidence, and dependencies) |
 | `created_at` | timestamp | Creation timestamp |
 | `updated_at` | timestamp | Update timestamp |
 
 #### Constraints & Indexes
 - Index: `engineering_tasks_org_id_idx` on `organization_id`.
 - Index: `engineering_tasks_prd_id_idx` on `prd_id`.
-- Index: `engineering_tasks_project_id_idx` on `project_id`.
 - Index: `engineering_tasks_status_idx` on `status`.
-- Index: `engineering_tasks_assignee_id_idx` on `assignee_id`.
 
 #### Relationships
 - Many-to-One: `organizations`, `prds`, `projects`, `users`
-
----
-
-### pull_requests
-**Purpose**: Code integration submissions resolving specific features/PRDs.  
-**Primary Key**: `id` (uuid, defaultRandom)
-
-#### Columns
-| Column | Type | Description |
-|---|---|---|
-| `id` | uuid | Pull Request ID |
-| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
-| `prd_id` | uuid | Reference to `prds.id` (restrict onDelete) |
-| `github_pr_id` | bigint (number) | GitHub PR entity ID |
-| `number` | integer | PR sequence number on GitHub |
-| `title` | varchar(255) | Header of pull request |
-| `branch` | varchar(255) | Source branch name |
-| `base_branch` | varchar(255) | Target branch name |
-| `head_sha` | varchar(40) | Latest commit hash |
-| `merged_at` | timestamp | Merger completion time |
-| `status` | enum | Status (`OPEN`, `CHANGES_REQUESTED`, `APPROVED`, `MERGED`) |
-| `created_at` | timestamp | Creation timestamp |
-| `updated_at` | timestamp | Update timestamp |
-
-#### Constraints & Indexes
-- Index: `pull_requests_org_id_idx` on `organization_id`.
-- Index: `pull_requests_prd_id_idx` on `prd_id`.
-- Index: `pull_requests_status_idx` on `status`.
-- Unique: `pull_requests_org_pr_uq` on (`organization_id`, `github_pr_id`).
-
-#### Relationships
-- Many-to-One: `organizations`, `prds`
-- One-to-Many: `ai_reviews`, `review_history`, `releases`
-
----
-
-### ai_reviews
-**Purpose**: Automated AI reviews triggered on PR codebase commits.  
-**Primary Key**: `id` (uuid, defaultRandom)
-
-#### Columns
-| Column | Type | Description |
-|---|---|---|
-| `id` | uuid | AI review record ID |
-| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
-| `pull_request_id` | uuid | Reference to `pull_requests.id` (cascade onDelete) |
-| `commit_sha` | varchar(40) | Evaluated commit hash |
-| `status` | enum | Process state (`PENDING`, `COMPLETED`, `FAILED`) |
-| `score` | integer | Code rating score |
-| `summary` | text | Overall feedback summary |
-| `model` | varchar(100) | Generative LLM version used |
-| `tokens_used` | integer | AI api tokens consumed |
-| `duration_ms` | integer | Processing time (ms) |
-| `created_at` | timestamp | Creation timestamp |
-| `updated_at` | timestamp | Update timestamp |
-
-#### Constraints & Indexes
-- Index: `ai_reviews_org_id_idx` on `organization_id`.
-- Index: `ai_reviews_pull_request_id_idx` on `pull_request_id`.
-- Index: `ai_reviews_status_idx` on `status`.
-
-#### Relationships
-- Many-to-One: `organizations`, `pull_requests`
-- One-to-Many: `review_issues`
-
----
-
-### review_issues
-**Purpose**: Specific items/code modifications flagged during AI reviews.  
-**Primary Key**: `id` (uuid, defaultRandom)
-
-#### Columns
-| Column | Type | Description |
-|---|---|---|
-| `id` | uuid | Issue identifier |
-| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
-| `ai_review_id` | uuid | Reference to `ai_reviews.id` (cascade onDelete) |
-| `file_path` | varchar(255) | Source file path containing the issue |
-| `line_number` | integer | Specific line flagged |
-| `message` | text | Issue details |
-| `severity` | enum | Severity (`BLOCKING`, `NON_BLOCKING`) |
-| `rule` | varchar(100) | Flagged rule name |
-| `suggestion` | text | Recommended code diff/fix |
-| `resolved` | boolean | Resolution status (default false) |
-| `resolved_at` | timestamp | Resolution completion time |
-| `created_at` | timestamp | Creation timestamp |
-| `updated_at` | timestamp | Update timestamp |
-
-#### Constraints & Indexes
-- Index: `review_issues_org_id_idx` on `organization_id`.
-- Index: `review_issues_ai_review_id_idx` on `ai_review_id`.
-- Index: `review_issues_severity_idx` on `severity`.
-- Index: `review_issues_resolved_idx` on `resolved`.
-
-#### Relationships
-- Many-to-One: `organizations`, `ai_reviews`
-
----
-
-### review_history
-**Purpose**: Logs historical developer actions on PR reviews.  
-**Primary Key**: `id` (uuid, defaultRandom)
-
-#### Columns
-| Column | Type | Description |
-|---|---|---|
-| `id` | uuid | History log ID |
-| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
-| `pull_request_id` | uuid | Reference to `pull_requests.id` (cascade onDelete) |
-| `action` | varchar(100) | Action description (e.g. "PR_CREATED", "REVIEW_SUBMITTED") |
-| `metadata` | jsonb | Auxiliary data parameters |
-| `created_at` | timestamp | Log creation timestamp |
-
-#### Constraints & Indexes
-- Index: `review_history_org_id_idx` on `organization_id`.
-- Index: `review_history_pull_request_id_idx` on `pull_request_id`.
-
-#### Relationships
-- Many-to-One: `organizations`, `pull_requests`
-
----
-
-### releases
-**Purpose**: Manages release statuses generated from pull requests.  
-**Primary Key**: `id` (uuid, defaultRandom)
-
-#### Columns
-| Column | Type | Description |
-|---|---|---|
-| `id` | uuid | Release ID |
-| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
-| `pull_request_id` | uuid | Reference to `pull_requests.id` (restrict onDelete) |
-| `version` | varchar(100) | Version release string |
-| `status` | enum | Status (`PENDING`, `APPROVED`, `SHIPPED`) |
-| `created_at` | timestamp | Creation timestamp |
-| `updated_at` | timestamp | Update timestamp |
-
-#### Constraints & Indexes
-- Index: `releases_org_id_idx` on `organization_id`.
-- Index: `releases_pull_request_id_idx` on `pull_request_id`.
-- Index: `releases_status_idx` on `status`.
-
-#### Relationships
-- Many-to-One: `organizations`, `pull_requests`
-
----
-
-### subscriptions
-**Purpose**: Payment tier and state mappings for workspace billing.  
-**Primary Key**: `id` (uuid, defaultRandom)
-
-#### Columns
-| Column | Type | Description |
-|---|---|---|
-| `id` | uuid | Subscription record ID |
-| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
-| `plan` | enum | Plan tier (`FREE`, `PRO`, `TEAM` - default `FREE`) |
-| `status` | varchar(50) | Payment status |
-| `provider` | varchar(50) | Payment provider (e.g. "RAZORPAY") |
-| `provider_subscription_id` | varchar(255) | Provider's subscription entity ID |
-| `provider_customer_id` | varchar(255) | Provider customer profile ID |
-| `provider_plan_id` | varchar(255) | Provider plan template ID |
-| `current_period_end` | timestamp | Billing period end timestamp |
-| `created_at` | timestamp | Creation timestamp |
-| `updated_at` | timestamp | Update timestamp |
-
-#### Constraints & Indexes
-- Index: `subscriptions_org_id_idx` on `organization_id`.
-- Index: `subscriptions_prov_sub_id_idx` on `provider_subscription_id`.
-- Unique: `subscriptions_org_prov_sub_uq` on (`organization_id`, `provider_subscription_id`).
-
-#### Relationships
-- Many-to-One: `organizations` (One-to-One mapping)
-
----
-
-### usage
-**Purpose**: Tracks workspace system usage for metered billing.  
-**Primary Key**: `id` (uuid, defaultRandom)
-
-#### Columns
-| Column | Type | Description |
-|---|---|---|
-| `id` | uuid | Usage log ID |
-| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
-| `metric` | varchar(100) | Metric identifier (e.g. "AI_TOKENS", "PULL_REQUESTS") |
-| `quantity` | integer | Measured amount |
-| `recorded_at` | timestamp | Measurement timestamp |
-
-#### Constraints & Indexes
-- Index: `usage_org_id_idx` on `organization_id`.
-- Index: `usage_metric_idx` on `metric`.
-
-#### Relationships
-- Many-to-One: `organizations`
 
 ---
 
@@ -580,26 +382,176 @@ erDiagram
 | `prd_id` | uuid | Reference to `prds.id` (cascade onDelete) |
 | `provider` | varchar(255) | AI provider name (e.g. `"openai"`, `"mock"`) |
 | `model` | varchar(255) | Model variant (e.g. `"gpt-4o-mini"`) |
-| `prompt_version` | varchar(255) | AI prompt version variant (e.g. `"v1"`) |
+| `prompt_version` | varchar(255) | Prompt version variant |
 | `prompt_hash` | varchar(255) | SHA-256 hash of the generated prompt input |
 | `response_hash` | varchar(255) | SHA-256 hash of the generated task output JSON |
-| `temperature` | real | Generation model temperature (e.g. `0.2`) |
+| `temperature` | real | Generation model temperature |
 | `status` | enum | Run status (`NOT_STARTED`, `QUEUED`, `GENERATING`, `COMPLETED`, `FAILED`) |
 | `idempotency_key` | varchar(255) | Unique idempotency checker key |
 | `generated_version` | integer | Mapped engineering task version |
 | `started_at` | timestamp | Run initialization timestamp |
 | `completed_at` | timestamp | Run termination timestamp |
 | `duration_ms` | integer | Generation execution duration |
-| `token_usage` | jsonb | Token footprint metadata `{ promptTokens, completionTokens, totalTokens }` |
-| `error` | text | Captured exception error string (if failed) |
-| `created_at` | timestamp | Creation timestamp |
-| `updated_at` | timestamp | Update timestamp |
+| `token_usage` | jsonb | Token footprint metadata |
+| `error` | text | Captured exception error string |
 
 #### Constraints & Indexes
 - Index: `task_generation_audits_org_id_idx` on `organization_id`.
 - Index: `task_generation_audits_prd_id_idx` on `prd_id`.
-- Index: `task_generation_audits_status_idx` on `status`.
-- Index: `task_generation_audits_idempotency_idx` on `idempotency_key`.
 
 #### Relationships
 - Many-to-One: `organizations`, `prds`
+
+---
+
+### pull_requests
+**Purpose**: Pull requests fetched/synchronized from connected GitHub repositories.  
+**Primary Key**: `id` (uuid, defaultRandom)
+
+#### Columns
+| Column | Type | Description |
+|---|---|---|
+| `id` | uuid | Pull Request ID |
+| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
+| `prd_id` | uuid | Reference to `prds.id` (restrict onDelete, Nullable) |
+| `repository_id` | uuid | Reference to `repositories.id` (cascade onDelete) |
+| `github_pr_id` | bigint (number) | GitHub Pull Request database ID |
+| `number` | integer | Pull request sequence number on GitHub |
+| `title` | varchar(255) | Title of the pull request |
+| `branch` | varchar(255) | Head/source branch name |
+| `base_branch` | varchar(255) | Base/target branch name |
+| `head_sha` | varchar(40) | Latest commit SHA of head branch |
+| `base_sha` | varchar(40) | SHA of base branch head when PR was created |
+| `state` | varchar(50) | State on GitHub (`open`, `closed`, `merged`) |
+| `author` | varchar(255) | Login handle of PR creator |
+| `url` | varchar(512) | HTML address of the pull request |
+| `merged_at` | timestamp | Merger timestamp |
+| `status` | enum | Status (`OPEN`, `CHANGES_REQUESTED`, `APPROVED`, `MERGED`) |
+| `processing_status` | enum | Integration lifecycle status (`RECEIVED`, `PROCESSING`, `READY_FOR_AI_REVIEW`, `FAILED`, `AI_REVIEWING`, `AI_REVIEW_COMPLETED`, `HUMAN_APPROVED`, `SHIPPED`) |
+| `created_at` | timestamp | Creation timestamp |
+| `updated_at` | timestamp | Update timestamp |
+
+#### Constraints & Indexes
+- Index: `pull_requests_org_id_idx` on `organization_id`.
+- Index: `pull_requests_prd_id_idx` on `prd_id`.
+- Index: `pull_requests_status_idx` on `status`.
+- Unique: `pull_requests_org_pr_uq` on (`organization_id`, `github_pr_id`).
+
+#### Relationships
+- Many-to-One: `organizations`, `prds`, `repositories`
+- One-to-Many: `pull_request_files`, `github_sync_audits`
+
+---
+
+### pull_request_files
+**Purpose**: Stores list of file modifications inside individual pull requests.  
+**Primary Key**: `id` (uuid, defaultRandom)
+
+#### Columns
+| Column | Type | Description |
+|---|---|---|
+| `id` | uuid | File record ID |
+| `pull_request_id` | uuid | Reference to `pull_requests.id` (cascade onDelete) |
+| `filename` | varchar(512) | Source file path |
+| `status` | varchar(50) | Status (`added`, `modified`, `removed`) |
+| `additions` | integer | Lines added count |
+| `deletions` | integer | Lines deleted count |
+| `changes` | integer | Total line changes count |
+| `patch` | text | Patch contents (stored only for files <20KB, otherwise Null) |
+
+#### Relationships
+- Many-to-One: `pull_requests`
+
+---
+
+### github_webhook_deliveries
+**Purpose**: Stores webhook delivery UUIDs to prevent processing the same webhook event more than once.  
+**Primary Key**: `id` (varchar, literal delivery UUID)
+
+#### Columns
+| Column | Type | Description |
+|---|---|---|
+| `id` | varchar | GitHub header `X-GitHub-Delivery` ID |
+| `event_type` | varchar(100) | Event type (e.g. `pull_request`, `installation`) |
+| `processed_at` | timestamp | Processed timestamp |
+
+---
+
+### github_sync_audits
+**Purpose**: Logs executions and processing metrics of incoming webhooks.  
+**Primary Key**: `id` (uuid, defaultRandom)
+
+#### Columns
+| Column | Type | Description |
+|---|---|---|
+| `id` | uuid | Audit log ID |
+| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
+| `repository_id` | uuid | Reference to `repositories.id` (cascade onDelete, Nullable) |
+| `pull_request_id` | uuid | Reference to `pull_requests.id` (set null onDelete, Nullable) |
+| `delivery_id` | varchar(255) | Delivery UUID matching `github_webhook_deliveries` |
+| `event` | varchar(100) | Webhook action text (e.g. `pull_request.opened`) |
+| `status` | varchar(50) | Exec state (`RECEIVED`, `PROCESSING`, `COMPLETED`, `FAILED`) |
+| `started_at` | timestamp | Start timestamp (default now) |
+| `completed_at` | timestamp | Completion timestamp |
+| `duration_ms` | integer | Execution runtime duration |
+| `retry_count` | integer | Current retry attempt index (0 for first execution) |
+| `error` | varchar(2048) | Exception details (if status is FAILED) |
+
+#### Constraints & Indexes
+- Index: `github_sync_audits_org_id_idx` on `organization_id`.
+- Index: `github_sync_audits_repo_id_idx` on `repository_id`.
+- Index: `github_sync_audits_pr_id_idx` on `pull_request_id`.
+- Index: `github_sync_audits_delivery_id_idx` on `delivery_id`.
+
+#### Relationships
+- Many-to-One: `organizations`, `repositories`, `pull_requests`
+
+---
+
+### subscriptions
+**Purpose**: Plan tiers and subscription tracking states.  
+**Primary Key**: `id` (uuid, defaultRandom)
+
+#### Columns
+| Column | Type | Description |
+|---|---|---|
+| `id` | uuid | Subscription record ID |
+| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
+| `plan` | enum | Plan tier (`FREE`, `PRO`, `TEAM`) |
+| `status` | varchar(50) | Payment status |
+| `provider` | varchar(50) | Provider name (e.g. `RAZORPAY`) |
+| `provider_subscription_id` | varchar(255) | Provider's entity ID |
+| `provider_customer_id` | varchar(255) | Provider customer profile ID |
+| `provider_plan_id` | varchar(255) | Provider plan template ID |
+| `current_period_end` | timestamp | Billing period end timestamp |
+| `created_at` | timestamp | Creation timestamp |
+| `updated_at` | timestamp | Update timestamp |
+
+#### Constraints & Indexes
+- Index: `subscriptions_org_id_idx` on `organization_id`.
+- Unique: `subscriptions_org_prov_sub_uq` on (`organization_id`, `provider_subscription_id`).
+
+#### Relationships
+- Many-to-One: `organizations` (One-to-One mapping)
+
+---
+
+### usage
+**Purpose**: System usages logged for billing calculations.  
+**Primary Key**: `id` (uuid, defaultRandom)
+
+#### Columns
+| Column | Type | Description |
+|---|---|---|
+| `id` | uuid | Usage log ID |
+| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
+| `metric` | varchar(100) | Metric name (e.g. `AI_TOKENS`) |
+| `quantity` | integer | Quantity log value |
+| `recorded_at` | timestamp | Timestamp of logs |
+
+#### Constraints & Indexes
+- Index: `usage_org_id_idx` on `organization_id`.
+- Index: `usage_metric_idx` on `metric`.
+
+#### Relationships
+- Many-to-One: `organizations`

@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { trpc } from "~/trpc/client";
+import { toast } from "sonner";
 import { useWorkspace } from "~/providers/workspace-context";
 import { Card, CardHeader, CardContent, CardTitle, CardDescription, CardFooter } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
@@ -11,10 +14,28 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Plus, Building2, LogOut, ArrowRight } from "lucide-react";
 
 export default function WorkspaceSelectPage() {
-  const { user, workspaces, isLoading, switchWorkspace, createWorkspace, signOut } = useWorkspace();
+  const router = useRouter();
+  const { user, workspaces, isLoading, switchWorkspace, createWorkspace, signOut, refetch } = useWorkspace();
   const [workspaceName, setWorkspaceName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const seedDemoMutation = trpc.workspace.seedDemoWorkspace.useMutation();
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  const handleSeedDemo = async () => {
+    setIsSeeding(true);
+    try {
+      await seedDemoMutation.mutateAsync();
+      toast.success("Demo Workspace configured and seeded successfully!");
+      await refetch();
+      router.push("/dashboard");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to seed demo workspace");
+    } finally {
+      setIsSeeding(false);
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,6 +171,26 @@ export default function WorkspaceSelectPage() {
               </form>
             </DialogContent>
           </Dialog>
+
+          {/* Launch Demo Mode Card */}
+          <Card
+            className="border border-dashed border-primary/50 hover:border-primary bg-primary/5 hover:bg-primary/10 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center p-8 min-h-[140px] text-center group"
+            onClick={handleSeedDemo}
+          >
+            {isSeeding ? (
+              <Spinner className="h-6 w-6 text-primary mb-3" />
+            ) : (
+              <div className="p-3 rounded-full bg-primary/15 group-hover:bg-primary/25 transition-colors mb-3">
+                <Plus className="h-6 w-6 text-primary" />
+              </div>
+            )}
+            <span className="text-sm font-semibold text-primary transition-colors">
+              {isSeeding ? "Seeding Demo Data..." : "Launch Demo Mode (Seed Workspace)"}
+            </span>
+            <p className="text-xs text-muted-foreground mt-1 max-w-[240px]">
+              Instantly create a mock workspace, project, PRD, tasks, repository, and pull request.
+            </p>
+          </Card>
         </div>
 
         {workspaces.length === 0 && (

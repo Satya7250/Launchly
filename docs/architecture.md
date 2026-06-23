@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-This document describes the codebase structure, dependency organization, data flows, and workflow integrations inside the Launchly monorepo.
+This document describes the codebase structure, package responsibilities, multi-tenant workspace isolation policies, ESM resolutions, data flows, and workflow integrations inside the Launchly monorepo.
 
 ---
 
@@ -11,20 +11,20 @@ Launchly is organized into a modular workspace configuration powered by `pnpm` a
 ```
 Launchly/
 ├── apps/
-│   ├── api/             # Express API Server (tRPC + OpenAPI scalar docs)
-│   └── web/             # Next.js Frontend Application
+│   ├── api/             # Express API Server (tRPC, REST endpoints, and OpenAPI scalar docs)
+│   └── web/             # Next.js Frontend Application (Dashboard, Kanban, and PR Views)
 ├── packages/
-│   ├── ai/              # AI SDK & OpenAI models interface
-│   ├── auth/            # BetterAuth identity provider
+│   ├── ai/              # AI SDK wrappers (OpenAI Structured output vs Mock AI provider)
+│   ├── auth/            # BetterAuth identity provider adapter and session hooks
 │   ├── billing/         # Payment gateways & Razorpay integrations
 │   ├── database/        # Drizzle ORM definitions, schema migrations, and Neon connection client
-│   ├── eslint-config/   # Linting configurations
-│   ├── github/          # GitHub App webhook listeners and octokit interfaces
-│   ├── inngest/         # Inngest SDK clients and event loop drivers
-│   ├── logger/          # Winston-based centralized logger
-│   ├── services/        # Application services & business logic orchestrators
-│   ├── shared/          # Utility scripts and shared config schemas
-│   ├── trpc/            # tRPC clients and backend server routers
+│   ├── eslint-config/   # Shared flat ESLint configurations
+│   ├── github/          # GitHub App auth, Webhook signatures, and Octokit wrappers
+│   ├── inngest/         # Inngest SDK event schemas, clients, and background handlers
+│   ├── logger/          # Winston-based centralized logging service
+│   ├── services/        # Consolidated database query logic and business rules handlers
+│   ├── shared/          # Centralized TS types, helper utils, and Zod env validators
+│   ├── trpc/            # tRPC adapters, procedures, context injection, and server routers
 │   └── typescript-config/# Shared TSConfigs (base.json, nextjs.json, node.json)
 ├── docs/                # Developer guides and system architecture documentations
 ├── package.json         # Workspace root configuration
@@ -67,6 +67,8 @@ graph TD
     pkg_database --> pkg_shared
     pkg_logger --> pkg_shared
     pkg_inngest --> pkg_shared
+    pkg_inngest --> pkg_github
+    pkg_inngest --> pkg_database
     pkg_ai --> pkg_shared
     pkg_github --> pkg_shared
     pkg_billing --> pkg_shared
@@ -74,66 +76,126 @@ graph TD
 
 ---
 
-## Data Flows & Core Workflows
+## TypeScript ESM Resolution Rules
 
-### 1. Authentication Flow (BetterAuth)
+Launchly utilizes modern Node.js and TypeScript configurations to ensure runtime ESM compatibility:
+- **Module Settings**: `"module": "NodeNext"` and `"moduleResolution": "NodeNext"` are configured in `@repo/typescript-config/base.json`.
+- **Package Configuration**: Workspace packages that define `"type": "module"` utilize ESM module resolution rules under Node.
+- **Import Specifiers**: Relative imports within these packages must use explicit `.js` file extensions:
+  - ❌ `import { env } from "./env"`
+  - ✅ `import { env } from "./env.js"`
 
-Launchly integrates BetterAuth to authorize clients. Users authenticate via credentials or Google OAuth:
+---
+
+## Workspace & Tenant Isolation
+
+Launchly is a secure multi-tenant SaaS application enforcing strict isolation boundaries:
+1. **`workspaceProcedure`**: Every tRPC request validates that the authenticated session corresponds to a member of the active workspace. Resolvers extract the workspace context on `ctx.workspace.active.id`.
+2. **Organization Scoping**: Database queries in the services layer compile with `and(eq(table.organizationId, workspaceId))` to prevent data leaks.
+3. **Webhook Workspace Linking**: When a GitHub webhook event is received, the server maps the event payload's repository ID to connected workspaces in the `repositories` table. If a repository is registered to multiple workspaces, an Inngest event is triggered independently for each workspace, ensuring complete tenant boundary isolation.
+
+---
+
+## Core System Flows
+
+### 1. Webhook Signature & Idempotency Flow
+Before any background work is scheduled, incoming GitHub webhooks are verified and filtered to guarantee integrity and single execution:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User
-    participant Web as apps/web (Client)
-    participant API as apps/api (Express Server)
-    participant Auth as packages/auth (BetterAuth)
+    participant GitHub
+    participant Webhook as apps/api (/api/webhooks/github)
     participant DB as packages/database (Neon PG)
+    participant Inngest as packages/inngest
 
-    User->>Web: Clicks "Sign in with Google"
-    Web->>API: GET /api/trpc/auth.getSupportedAuthenticationProviders
-    API-->>Web: Returns Google OAuth Callback Redirect URL
-    Web->>User: Redirects to Google Login Consent
-    User->>Web: Grants permission & returns with Auth Token
-    Web->>API: POST /api/auth/* (BetterAuth Endpoint)
-    API->>Auth: Validate OAuth payload
-    Auth->>DB: Read/Create user record
-    DB-->>Auth: User record created
-    Auth-->>API: Sets cookies/session tokens
-    API-->>Web: HTTP 200 (Authenticated session established)
+    GitHub->>Webhook: POST with headers (x-hub-signature-256, x-github-delivery)
+    Webhook->>Webhook: Read raw buffer body (req.rawBody)
+    Webhook->>Webhook: Compute HMAC-SHA256 digest with GITHUB_WEBHOOK_SECRET
+    alt Signature Mismatch
+        Webhook-->>GitHub: HTTP 401 Unauthorized
+    else Signature Valid
+        Webhook->>DB: Check if delivery_id exists in github_webhook_deliveries
+        alt Delivery Exists (Duplicate)
+            Webhook-->>GitHub: HTTP 200 OK (Idempotency skip)
+        else Delivery New
+            Webhook->>DB: Insert delivery_id into github_webhook_deliveries
+            Webhook->>DB: Insert audit log (status: RECEIVED) into github_sync_audits
+            Webhook->>Inngest: Dispatch github.pull_request.received (with auditId)
+            Webhook-->>GitHub: HTTP 200 OK (Processed <100ms)
+        end
+    end
 ```
 
----
-
-### 2. AI Review Workflow
-
-When code updates are pushed, Launchly automates review evaluation via the AI SDK:
+### 2. GitHub Pull Request Ingestion Flow
+Once enqueued, the Inngest runner parses files and synchronizes repository changes in the background:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Dev as Developer
-    participant GH as GitHub App
-    participant API as apps/api (Webhook Endpoint)
-    participant Inngest as Inngest (Event Driver)
-    participant AI as packages/ai (OpenAI SDK)
+    participant Inngest as Inngest Background Runner
     participant DB as packages/database (Neon PG)
+    participant GH as GitHub API (Octokit)
 
-    Dev->>GH: Push commit / Create Pull Request
-    GH->>API: Emit webhook event (pull_request.opened)
-    API->>DB: Log new pull request record (status: OPEN)
-    API->>Inngest: Send event: github/pull_request.created
-    Inngest->>AI: Trigger review analysis task
-    AI->>AI: Fetch code diff & run prompt engineering
-    AI-->>Inngest: Return AI review score and suggestions
-    Inngest->>DB: Log review record into ai_reviews & review_issues
-    Inngest->>GH: Post feedback comment to GitHub PR
+    Inngest->>DB: Update github_sync_audits (status: PROCESSING, retryCount: attempt)
+    Inngest->>DB: Query repositories table to resolve full name
+    Inngest->>DB: Initialize pull_requests row (processing_status: PROCESSING)
+    Inngest->>GH: Get PR Metadata (commits, branch, base/head SHAs) via Octokit
+    Inngest->>GH: Get PR Modified Files (names, additions, deletions, patches)
+    Inngest->>DB: Update pull_requests details
+    rect rgb(20, 20, 30)
+        Note over Inngest,DB: DB Transaction (Cascade Safe)
+        Inngest->>DB: Delete existing pull_request_files rows
+        Inngest->>DB: Insert new pull_request_files (ignores patches >20KB to save space)
+    end
+    Inngest->>DB: Update pull_requests (processing_status: READY_FOR_AI_REVIEW)
+    Inngest->>DB: Update github_sync_audits (status: COMPLETED, durationMs)
+    Inngest->>Inngest: Emit github.pull_request.processed
 ```
 
----
+### 3. AI Task Generation Flow (Hardened)
+Engineering tasks are extracted from Product Requirement Documents (PRDs) via structured AI parsing or mock fallbacks:
 
-### 3. Subscription & Billing Flow
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Workspace Developer
+    participant Web as apps/web (Kanban UI)
+    participant API as apps/api (tRPC router)
+    participant TaskSvc as packages/services (TaskService)
+    participant DB as packages/database (Neon PG)
+    participant Inngest as Inngest Runner
+    participant AI as packages/ai (OpenAI / Mock)
 
-Launchly integrates Razorpay for tenant workspace subscription management:
+    User->>Web: Clicks "Generate Tasks"
+    Web->>API: Mutation task.generate({ prdId })
+    API->>TaskSvc: Trigger task generation
+    rect rgb(20, 20, 30)
+        Note over TaskSvc,DB: Row Lock Transaction
+        TaskSvc->>DB: SELECT FOR UPDATE (prd_id row)
+        TaskSvc->>DB: Check for running/queued task_generation_audits
+        TaskSvc->>DB: Insert new audit record (status: QUEUED)
+    end
+    TaskSvc->>Inngest: Send event: task.generate (with generationId)
+    TaskSvc-->>API: Returns success & generationId
+    API-->>Web: Return response parameters
+    Note over Web,API: Web UI polls getGenerationStatus every 2000ms
+
+    Inngest->>DB: Update audit status to GENERATING
+    Inngest->>DB: Fetch PRD details
+    Inngest->>AI: Call provider.generateTasks(prdObject)
+    AI-->>Inngest: Return task list JSON + token usage metadata
+    Inngest->>DB: Bulk insert tasks in database (nextVersion index)
+    Inngest->>DB: Update audit (status: COMPLETED, hashes, durationMs)
+
+    Web->>API: Poll getGenerationStatus -> COMPLETED
+    Web->>API: Query task.list({ prdId })
+    API-->>Web: Return task array
+    Web-->>User: Render Kanban board with drag-and-drop support
+```
+
+### 4. Subscription & Billing Flow
+Payment plans are updated automatically based on Razorpay checkout webhooks:
 
 ```mermaid
 sequenceDiagram
@@ -144,127 +206,13 @@ sequenceDiagram
     participant RP as Razorpay API
     participant DB as packages/database
 
-    Admin->>Web: Upgrades to Team/Pro tier
-    Web->>API: Initialize Razorpay Subscription
-    API->>RP: Create Subscription session
-    RP-->>API: Returns Payment parameters
-    API-->>Web: Render Razorpay Check-out iframe
-    Admin->>Web: Inputs payment details
-    Web->>RP: Direct Payment transaction processing
-    RP-->>Web: Payment confirmation webhook
-    RP->>API: POST /api/billing/webhook
-    API->>DB: Update `subscriptions` record (plan: PRO, status: active)
-    API-->>RP: HTTP 200 (Ack)
+    Admin->>Web: Upgrades plan tier
+    Web->>API: Request subscription creation
+    API->>RP: Create checkout session
+    RP-->>API: Return Checkout credentials
+    API-->>Web: Render checkout modal
+    Admin->>Web: Completes payment
+    RP->>API: POST /api/billing/webhook (Signature Verified)
+    API->>DB: Update subscriptions status and tier
+    API-->>RP: HTTP 200 OK
 ```
-
----
-
-### 4. AI Task Generation Flow (Hardened)
-
-Task breakdowns are processed asynchronously with strict idempotency and concurrency locks:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant Web as apps/web (Kanban)
-    participant API as apps/api (tRPC Router)
-    participant TaskSvc as packages/services (TaskService)
-    participant DB as packages/database (Neon PG)
-    participant Inngest as Inngest (Event Bus)
-    participant AI as packages/ai (OpenAI SDK)
-
-    User->>Web: Clicks "Break Down Spec Into Tasks"
-    Web->>API: Mutation task.generate({ prdId })
-    API->>TaskSvc: triggerTaskGeneration(workspaceId, prdId)
-    
-    rect rgb(20, 20, 30)
-        Note over TaskSvc,DB: Concurrency Protection Transaction
-        TaskSvc->>DB: SELECT FOR UPDATE (Locks PRD row)
-        TaskSvc->>DB: Check if any QUEUED/GENERATING audit exists
-        TaskSvc->>DB: Insert new audit record (status: QUEUED, idempotencyKey)
-    end
-    
-    TaskSvc->>Inngest: Send event: task.generate (with generationId)
-    TaskSvc-->>API: Returns { success: true, generationId }
-    API-->>Web: Returns response container
-    
-    Note over Web,API: Background Status Polling (refetchInterval: 2000ms)
-    Web->>API: Query task.getGenerationStatus({ prdId })
-    API-->>Web: Returns status: QUEUED
-
-    Note over Inngest,AI: Inngest Asynchronous Execution Loop
-    Inngest->>DB: Update status to GENERATING
-    Inngest->>DB: Check idempotency (skip if already COMPLETED)
-    Inngest->>DB: Fetch PRD details
-    Inngest->>AI: Call provider.generateTasks(prdObject)
-    AI-->>Inngest: Return task list array + usage metadata
-    
-    rect rgb(20, 20, 30)
-        Note over Inngest,DB: DB Transaction
-        Inngest->>DB: Insert tasks under nextVersion in engineering_tasks
-    end
-    
-    Inngest->>DB: Update audit to COMPLETED (promptHash, responseHash, durationMs, temperature)
-    
-    Web->>API: Query task.getGenerationStatus({ prdId })
-    API-->>Web: Returns status: COMPLETED
-    Web->>API: Query task.list({ prdId, version })
-    API-->>Web: Returns engineering task list
-    Web->>User: Renders Kanban board with generated tasks
-```
-
----
-
-### 5. Background Job Loop (Inngest Workflow)
-
-Background event loop scheduling is decoupled using Inngest event execution hooks:
-
-```mermaid
-graph LR
-    subgraph Event Source
-        web["apps/web"]
-        api["apps/api"]
-        github["GitHub Webhooks"]
-    end
-
-    subgraph Event Bus
-        inngest["Inngest Cloud Bus"]
-    end
-
-    subgraph Event Handlers
-        prd_job["Generate PRD Job"]
-        review_job["Run AI Code Review Job"]
-        billing_job["Sync Billing Plan Job"]
-        task_job["Generate Tasks Job"]
-    end
-
-    web -->|Trigger Event| inngest
-    api -->|Trigger Event| inngest
-    github -->|Webhook Event| inngest
-
-    inngest --> prd_job
-    inngest --> review_job
-    inngest --> billing_job
-    inngest --> task_job
-```
-
----
-
-## TypeScript ESM Resolution Rules
-
-Launchly utilizes modern Node.js and TypeScript configurations to ensure runtime ESM compatibility:
-- **Module Settings**: `"module": "NodeNext"` and `"moduleResolution": "NodeNext"` are configured in `@repo/typescript-config/base.json`.
-- **Package Configuration**: Workspace packages that define `"type": "module"` utilize ESM module resolution rules under Node.
-- **Import Specifiers**: In alignment with Node.js ESM standards, relative imports within these packages must use explicit `.js` file extensions:
-  - ❌ `import { env } from "./env"`
-  - ✅ `import { env } from "./env.js"`
-  *Note: TypeScript automatically resolves the `.js` path to the underlying `.ts` source files during type-checking and compilation while remaining compatible with standard Node.js runtimes.*
-
----
-
-## Workspace & Tenant Isolation Flow
-All data endpoints and background jobs inside Launchly strictly enforce organization-level scoping:
-1. **API Requests:** Requests entering the tRPC engine utilize the `workspaceProcedure`. This middleware inspects the user's active session, validates that the user is a registered member of the organization, and mounts the validated workspace context on `ctx.workspace.active`.
-2. **Services & Database:** All database operations inside the `TaskService` construct queries using the Drizzle `and()` operator, matching the query filters with the active workspace's UUID (`organizationId`).
-3. **Background Jobs:** The `task.generate` event carries both the target `prdId` and the `workspaceId`. The Inngest runner queries the database with both fields, verifying that the PRD belongs to the requesting tenant workspace before triggering any LLM operations.

@@ -1,9 +1,10 @@
-import { inngest, taskGenerateEvent } from "./client.js";
+import { inngest, taskGenerateEvent, githubPullRequestReceivedEvent } from "./client.js";
 import { db, eq, and, desc, sql } from "@repo/database";
-import { prdsTable, engineeringTasksTable, taskGenerationAuditsTable } from "@repo/database/schema";
+import { prdsTable, engineeringTasksTable, taskGenerationAuditsTable, pullRequestsTable, pullRequestFilesTable, repositoriesTable, githubSyncAuditsTable } from "@repo/database/schema";
 import { getPRDProvider } from "@repo/ai";
 import { TaskStatus, TaskAiMetadata } from "@repo/shared";
 import { createHash } from "node:crypto";
+import { getPullRequest, getPullRequestFiles } from "@repo/github";
 
 export const taskGenerationFunction = inngest.createFunction(
   {
@@ -256,6 +257,265 @@ export const taskGenerationFunction = inngest.createFunction(
           .where(eq(taskGenerationAuditsTable.id, resolvedGenId));
       });
       // Re-throw so Inngest registers the failure/retry
+      throw error;
+    }
+  }
+);
+
+export const githubPullRequestReceivedFunction = inngest.createFunction(
+  {
+    id: "github-pull-request-received",
+    name: "GitHub Pull Request Received",
+    triggers: [githubPullRequestReceivedEvent],
+  },
+  async ({ event, step, attempt }) => {
+    const { workspaceId, repositoryId, installationId, pullRequestNumber, githubPullRequestId, action, auditId } = event.data;
+    const functionStartedAt = new Date();
+
+    // 1. Fetch Repository details from database to verify and get owner/name
+    const repoRecord = await step.run("fetch-repo-details", async () => {
+      const [repo] = await db
+          .select()
+          .from(repositoriesTable)
+          .where(
+              and(
+                  eq(repositoriesTable.id, repositoryId),
+                  eq(repositoriesTable.organizationId, workspaceId)
+              )
+          )
+          .limit(1);
+
+      if (!repo) {
+        throw new Error(`Repository ${repositoryId} not found in workspace ${workspaceId}`);
+      }
+      return repo;
+    });
+
+    // 2. Initialize/Upsert PR record in database as "RECEIVED"
+    const prId = await step.run("initialize-pr", async () => {
+      // Check if PR already exists in this workspace
+      const [existing] = await db
+          .select()
+          .from(pullRequestsTable)
+          .where(
+              and(
+                  eq(pullRequestsTable.organizationId, workspaceId),
+                  eq(pullRequestsTable.githubPrId, githubPullRequestId)
+              )
+          )
+          .limit(1);
+
+      if (existing) {
+        // Update its processing status to PROCESSING
+        await db
+            .update(pullRequestsTable)
+            .set({
+              processingStatus: "PROCESSING",
+              updatedAt: new Date(),
+            })
+            .where(eq(pullRequestsTable.id, existing.id));
+        return existing.id;
+      }
+
+      // Create new PR record
+      const [inserted] = await db
+          .insert(pullRequestsTable)
+          .values({
+            organizationId: workspaceId,
+            repositoryId: repositoryId,
+            githubPrId: githubPullRequestId,
+            number: pullRequestNumber,
+            title: `PR #${pullRequestNumber}`, // temporary title
+            state: action === "closed" ? "closed" : "open",
+            author: "unknown", // temporary
+            url: `https://github.com/${repoRecord.fullName}/pull/${pullRequestNumber}`,
+            processingStatus: "PROCESSING",
+          })
+          .returning();
+
+      if (!inserted) {
+        throw new Error("Failed to initialize pull request in database");
+      }
+      return inserted.id;
+    });
+
+    // Update audit record to PROCESSING status
+    if (auditId) {
+      await step.run("update-audit-processing", async () => {
+        await db
+            .update(githubSyncAuditsTable)
+            .set({
+              status: "PROCESSING",
+              pullRequestId: prId,
+              retryCount: attempt,
+            })
+            .where(eq(githubSyncAuditsTable.id, auditId));
+      });
+    }
+
+    try {
+      // 3. Fetch PR Details from GitHub
+      const prDetails = await step.run("fetch-pr-from-github", async () => {
+        const fullNameParts = repoRecord.fullName.split("/");
+        const owner = fullNameParts[0];
+        const repoName = fullNameParts[1];
+        if (!owner || !repoName) {
+          throw new Error(`Invalid repository full name: ${repoRecord.fullName}`);
+        }
+        return await getPullRequest(installationId, owner, repoName, pullRequestNumber);
+      });
+
+      // 4. Fetch PR Files from GitHub
+      const prFiles = await step.run("fetch-files-from-github", async () => {
+        const fullNameParts = repoRecord.fullName.split("/");
+        const owner = fullNameParts[0];
+        const repoName = fullNameParts[1];
+        if (!owner || !repoName) {
+          throw new Error(`Invalid repository full name: ${repoRecord.fullName}`);
+        }
+        return await getPullRequestFiles(installationId, owner, repoName, pullRequestNumber);
+      });
+
+      // 5. Update PR record with complete details
+      await step.run("update-pr-details", async () => {
+        let state: string = prDetails.state;
+        if (prDetails.merged) {
+          state = "merged";
+        }
+
+        let status: "OPEN" | "CHANGES_REQUESTED" | "APPROVED" | "MERGED" = "OPEN";
+        if (prDetails.merged) {
+          status = "MERGED";
+        }
+
+        await db
+            .update(pullRequestsTable)
+            .set({
+              title: prDetails.title || `PR #${pullRequestNumber}`,
+              state: state,
+              author: prDetails.user?.login || "unknown",
+              branch: prDetails.head.ref,
+              baseBranch: prDetails.base.ref,
+              headSha: prDetails.head.sha,
+              baseSha: prDetails.base.sha,
+              url: prDetails.html_url,
+              mergedAt: prDetails.merged_at ? new Date(prDetails.merged_at) : null,
+              status: status,
+              updatedAt: new Date(),
+            })
+            .where(eq(pullRequestsTable.id, prId));
+      });
+
+      // 6. Persist Files details inside database transaction
+      await step.run("persist-files", async () => {
+        await db.transaction(async (tx) => {
+          // Delete existing files
+          await tx
+              .delete(pullRequestFilesTable)
+              .where(eq(pullRequestFilesTable.pullRequestId, prId));
+
+          // Bulk insert files
+          if (prFiles.length > 0) {
+            // For files > 20KB (20000 chars) patch is null
+            const filesToInsert = prFiles.map((file: any) => {
+              const patchText = file.patch || null;
+              const isTooLarge = patchText && patchText.length > 20000;
+              return {
+                pullRequestId: prId,
+                filename: file.filename,
+                status: file.status, // added, modified, removed
+                additions: file.additions,
+                deletions: file.deletions,
+                changes: file.changes,
+                patch: isTooLarge ? null : patchText,
+              };
+            });
+
+            // Split into chunks of 100 to avoid query parameter limit in postgres
+            const chunkSize = 100;
+            for (let i = 0; i < filesToInsert.length; i += chunkSize) {
+              const chunk = filesToInsert.slice(i, i + chunkSize);
+              await tx.insert(pullRequestFilesTable).values(chunk);
+            }
+          }
+        });
+      });
+
+      // 7. Update PR processing status to READY_FOR_AI_REVIEW
+      await step.run("transition-to-ready", async () => {
+        await db
+            .update(pullRequestsTable)
+            .set({
+              processingStatus: "READY_FOR_AI_REVIEW",
+              updatedAt: new Date(),
+            })
+            .where(eq(pullRequestsTable.id, prId));
+      });
+
+      // Update audit record to COMPLETED status
+      if (auditId) {
+        await step.run("update-audit-completed", async () => {
+          const completedAt = new Date();
+          const durationMs = completedAt.getTime() - functionStartedAt.getTime();
+          await db
+              .update(githubSyncAuditsTable)
+              .set({
+                status: "COMPLETED",
+                completedAt,
+                durationMs,
+                retryCount: attempt,
+              })
+              .where(eq(githubSyncAuditsTable.id, auditId));
+        });
+      }
+
+      // 8. Emit processed event
+      await step.sendEvent("emit-processed-event", {
+        name: "github.pull_request.processed",
+        data: {
+          workspaceId,
+          repositoryId,
+          pullRequestId: prId,
+          pullRequestNumber,
+        },
+      });
+
+      return {
+        success: true,
+        pullRequestId: prId,
+        filesCount: prFiles.length,
+      };
+
+    } catch (error: any) {
+      // Update status to FAILED in case of error
+      await step.run("transition-to-failed", async () => {
+        await db
+            .update(pullRequestsTable)
+            .set({
+              processingStatus: "FAILED",
+              updatedAt: new Date(),
+            })
+            .where(eq(pullRequestsTable.id, prId));
+      });
+
+      // Update audit record to FAILED status
+      if (auditId) {
+        await step.run("update-audit-failed", async () => {
+          const completedAt = new Date();
+          const durationMs = completedAt.getTime() - functionStartedAt.getTime();
+          await db
+              .update(githubSyncAuditsTable)
+              .set({
+                status: "FAILED",
+                completedAt,
+                durationMs,
+                retryCount: attempt,
+                error: error?.message || String(error),
+              })
+              .where(eq(githubSyncAuditsTable.id, auditId));
+        });
+      }
+
       throw error;
     }
   }

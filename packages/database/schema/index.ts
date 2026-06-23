@@ -9,6 +9,8 @@ export * from "./feature-requests";
 export * from "./prds";
 export * from "./engineering-tasks";
 export * from "./pull-requests";
+export * from "./pull-request-files";
+export * from "./github-webhook-deliveries";
 export * from "./ai-reviews";
 export * from "./review-issues";
 export * from "./review-history";
@@ -16,4 +18,6 @@ export * from "./releases";
 export * from "./subscriptions";
 export * from "./usage";
 export * from "./task-generation-audits";
+export * from "./github-sync-audits";
 export * from "./relations";
+

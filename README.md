@@ -4,271 +4,414 @@ An enterprise-grade monorepo platform orchestrating clients' feature requests, a
 
 ---
 
-## Overview
+## Product Overview
 
-Launchly (ShipFlow AI) helps product and software engineering teams bridge the gap between initial product specs and high-quality, tenant-isolated code output. The end-to-end user journey operates as follows:
+Launchly helps product and software engineering teams bridge the gap between initial product ideas and high-quality, tenant-isolated production code. The complete end-to-end user journey is mapped as follows:
 
 ```
 Feature Request 
-  ➜ AI Requirement Clarification 
-  ➜ PRD Generation 
-  ➜ PRD Versioning 
-  ➜ AI Task Generation (Hardened) 
-  ➜ Kanban Board (Optimistic Updates) 
-  ➜ (Upcoming) GitHub PR Webhooks 
-  ➜ AI Automated Code Review 
-  ➜ Human Approval 
-  ➜ Ship
+      ↓
+AI Clarification 
+      ↓
+PRD Generation 
+      ↓
+PRD Versioning 
+      ↓
+Engineering Task Generation (Hardened)
+      ↓
+Kanban Board (Optimistic Updates)
+      ↓
+GitHub Integration (Webhook Triggered)
+      ↓
+(Upcoming) AI Review
+      ↓
+(Upcoming) Human Approval
+      ↓
+(Upcoming) Shipped
 ```
 
 ---
 
 ## Tech Stack
 
-The application leverages a cutting-edge typescript monorepo tech stack:
-- **Monorepo Engine:** `pnpm` Workspaces + `Turborepo`
-- **Application Server:** Express server (TypeScript, tRPC, OpenAPI specs)
-- **Frontend App:** Next.js (App Router, Tailwind CSS, shadcn/ui components)
+The application leverages a modern, highly observable typescript monorepo tech stack:
+- **Core Frontend Framework:** Next.js (App Router, Tailwind CSS, and shadcn/ui components)
+- **Application Server:** Express server (TypeScript, tRPC v11, and OpenAPI specifications)
 - **Database:** PostgreSQL on Neon Serverless Postgres
-- **ORM:** Drizzle ORM (schema relations, migrations, type generation)
+- **ORM:** Drizzle ORM (schema definitions, relations, and migrations runner)
 - **Authentication:** BetterAuth (OAuth 2.0 with Google, sessions management)
-- **Background Event Bus:** Inngest SDK (reliable async queue, retry parameters)
-- **AI Engine:** OpenAI SDK (GPT-4o-mini structured schemas, Mock fallback engine)
-- **Kanban Board Engine:** `@dnd-kit` (drag-and-drop sortable contexts)
-- **Billing & Subscriptions:** Razorpay SDK (webhooks synchronization)
+- **Background Event Bus:** Inngest SDK (reliable async queue, retry parameters, and concurrency controls)
+- **AI Engine:** OpenAI SDK (structured JSON parsing, GPT-4o-mini, and a Mock fallback engine)
+- **Kanban Board:** `@dnd-kit` (drag-and-drop sortable context engine)
+- **Git Integration:** Octokit (GitHub Rest & App Auth wrapper)
+- **Styling:** Tailwind CSS & Shadcn UI
 
 ---
 
-## Architecture & Monorepo Structure
+## Monorepo Structure
 
 Launchly separates deployment-ready applications from internal shared packages:
 
 ### Applications
-- `apps/api`: The Express server powering the backend, tRPC routers, and OpenAPI Scalar documentation page.
-- `apps/web`: The Next.js frontend application with dashboard routes, Spec editors, and Kanban board views.
+- **`apps/api`**: The Express server hosting the backend, tRPC routers, background job endpoint listeners, and Scalar OpenAPI documentation.
+- **`apps/web`**: The Next.js frontend application with dashboard routes, Spec editors, Pull Request tracker, and Kanban board views.
 
 ### Shared Packages
-- `packages/ai`: OpenAI API client interface schemas and prompt configurations.
-- `packages/auth`: Centralized BetterAuth database adapter configuration.
-- `packages/billing`: Razorpay gateway client interface and payment webhook handlers.
-- `packages/database`: PostgreSQL schema definitions, indices, and Drizzle migrations runner.
-- `packages/eslint-config`: Shared ESLint Flat configuration rules.
-- `packages/github`: Webhook listeners and Octokit integration clients.
-- `packages/inngest`: Shared background execution clients and handlers setup.
-- `packages/logger`: Winston-based centralized logger wrapper.
-- `packages/services`: Consolidated business logic and ORM query orchestrators (e.g. `prdService`, `taskService`).
-- `packages/shared`: Shared TS types, schema definitions, and env validators.
-- `packages/trpc`: Centralized tRPC procedures, middle-wares, schemas, and router mappings.
-- `packages/typescript-config`: Shared TSConfig bases.
-
-### System Architecture Diagram
-
-```mermaid
-graph TD
-    Web[apps/web] --> TRPC[packages/trpc]
-    API[apps/api] --> TRPC
-    TRPC --> Services[packages/services]
-    Services --> DB[packages/database]
-    Services --> Auth[packages/auth]
-    Services --> AI[packages/ai]
-    Services --> Inngest[packages/inngest]
-```
+- **`packages/ai`**: Interface and schema definitions for prompt compilation and response parsing using OpenAI or a Mock provider.
+- **`packages/auth`**: Centralized BetterAuth database adapter configuration and session rules.
+- **`packages/billing`**: Razorpay gateway client interface and subscription webhook handlers.
+- **`packages/database`**: PostgreSQL schema definitions, relations, index setup, and Drizzle migrations manager.
+- **`packages/eslint-config`**: Shared ESLint Flat configuration rules.
+- **`packages/github`**: GitHub App client configurations, webhook signature verification methods, and Octokit repository fetchers.
+- **`packages/inngest`**: Centralized event schemas, background worker execution clients, and handler functions.
+- **`packages/logger`**: Winston-based centralized logger utility.
+- **`packages/services`**: Shared business logic helpers and database query service orchestrators.
+- **`packages/shared`**: Common TS interfaces, Zod models, and environment variables validation schemas.
+- **`packages/trpc`**: Centralized tRPC procedures, middlewares, context builders, and router mappings.
+- **`packages/typescript-config`**: Shared compiler configuration bases (base.json, nextjs.json, node.json).
+- **`packages/ui`**: *Planned for future package unification*. Currently, reusable UI components are colocated in `apps/web/components/ui` using shadcn/ui for UI components.
 
 ---
 
-## AI Features & Modes
+## GitHub Integration
 
-1. **Requirement Clarification:** Detects underspecified specs and lists clarifying questions before PRD generation.
-2. **PRD Generation:** Parses user descriptions into highly structured JSON formats (problem statement, goals, non-goals, user stories, acceptance criteria, edge cases).
-3. **PRD Versioning:** Saves complete document versions for iteration management.
-4. **AI Task Generation:** Scans the generated PRD content to outline discrete, dependency-mapped engineering tasks.
-5. **Task Generation Audit Trail:** Tracks all generation metadata (provider, model, token usage, duration, prompt/response hashes).
-6. **Provider Modes:**
-   - **OpenAI Mode:** Live API completions mapping schemas with `zodResponseFormat`.
-   - **Mock Mode:** Dynamic mock-data generator triggered if `MOCK_AI=true` or API keys are missing.
+Launchly provides a native GitHub integration module allowing organizations to link repositories, ingest PR files, and review code modifications.
+
+### 1. GitHub App
+The platform operates as a registered GitHub App. Organizations install the app on their individual user account or github organization. Authentication is managed using App IDs and PEM-encoded private keys, allowing Launchly to request short-lived installation access tokens dynamically.
+
+### 2. Installation Flow
+1. User is redirected to GitHub's App installation portal.
+2. After granting permissions, GitHub redirects the user back to Launchly's settings page: `/github?installation_id=xxx`.
+3. Launchly registers the `installationId` in the database under the active workspace's UUID, fetching account metadata asynchronously.
+
+### 3. Repository Connection
+Once installed, users choose from the list of available repositories fetched from GitHub and connect them to the workspace. This establishes a row in the `repositories` table scoped to the organization.
+
+### 4. Webhook Processing & Idempotency
+- GitHub fires webhooks to `/api/webhooks/github` on `pull_request` and `installation` events.
+- **Signature Verification**: Every webhook payload must be signed using HMAC-SHA256 with the configured secret. The API parses and validates this signature.
+- **Idempotency**: The server extracts the `X-GitHub-Delivery` header and checks the `github_webhook_deliveries` cache. Duplicate webhook requests are immediately skipped with `200 OK` to prevent processing events multiple times.
+- **Auditing**: Every valid event is logged in `github_sync_audits` with a status of `RECEIVED`.
+- **Fast Response**: To avoid GitHub's 10-second timeout, the webhook handler validates signatures, records delivery/audit logs, dispatches an Inngest background event, and immediately returns a `200 OK` response.
+
+### 5. Inngest Background Jobs & PR Ingestion
+The event is picked up by `githubPullRequestReceivedFunction`:
+1. Transitions the audit log to `PROCESSING` status and updates the retry count.
+2. Upserts a PR record in `pull_requests` with a processing lifecycle status of `RECEIVED` then `PROCESSING`.
+3. Queries Octokit to fetch metadata (title, branches, commits, base/head SHAs) and file modifications.
+4. Saves modified files into `pull_request_files`. To prevent database bloat, **patches for files larger than 20KB are ignored and stored as null**.
+5. Transitions the PR processing status to `READY_FOR_AI_REVIEW`.
+6. Updates the audit log to `COMPLETED` or `FAILED` (with error message), and sets the execution duration and final retry count.
+
+### 6. Lazy Diff Loading
+When displaying file diffs in the frontend, small file patches are loaded directly from `pull_request_files`. For files without stored patches (e.g. >20KB), the frontend triggers an on-demand tRPC query (`github.pullRequestDiff`) which fetches the raw patch from GitHub's API dynamically, reducing db load.
 
 ---
 
-## Background Jobs & Inngest Event Loop
+## Database Documentation
 
-Launchly handles long-running AI breakdowns asynchronously to maintain quick client interactions.
-
-- **Event Triggering:** The `task.generate` event is dispatched with `generationId`, `prdId`, `workspaceId`, and `projectId`.
-- **Generation Lifecycle:** The job transitions through state machines:
-  `NOT_STARTED` ➜ `QUEUED` (audit record inserted) ➜ `GENERATING` (worker active) ➜ `COMPLETED` (tasks saved) or `FAILED` (error logged).
-- **Idempotency checks:** If Inngest retries the job (or receives the same event again), the worker detects the `COMPLETED` audit status for that `generationId` and immediately returns the count/version without duplicating tasks.
-- **Audit Logging:** Saves executing durations, token consumptions, temperature parameters, and prompt/response SHA-256 hashes.
-
----
-
-## Workspace & Tenant Isolation
-
-Launchly is a secure multi-tenant SaaS application:
-- **`workspaceProcedure`:** Every tRPC request validates that the authenticated user is an active member of the workspace. Context is injected on `ctx.workspace.active.id`.
-- **Organization Scoping:** Every database query in the services layer uses Drizzle `and()` conditions to lock filters to `organizationId`.
-- **AI Data Leak Protection:** Audits, tasks, and PRD metadata are strictly partitioned. The Inngest runner validates that the PRD belongs to the requested workspace before starting the job.
-
----
-
-## Database Schema
-
+### Entity Relationship Diagram
 ```mermaid
 erDiagram
-    organizations ||--o{ prds : has
+    organizations ||--o{ github_installations : contains
+    organizations ||--o{ github_sync_audits : records
+    organizations ||--o{ repositories : includes
+    organizations ||--o{ pull_requests : tracks
+    organizations ||--o{ task_generation_audits : logs
     organizations ||--o{ engineering_tasks : tracks
-    organizations ||--o{ task_generation_audits : records
-    prds ||--o{ engineering_tasks : contains
-    prds ||--o{ task_generation_audits : logs
+
+    github_installations ||--o{ repositories : links
+    repositories ||--o{ pull_requests : contains
+    repositories ||--o{ github_sync_audits : logs
+    pull_requests ||--o{ pull_request_files : modifies
+    pull_requests ||--o{ github_sync_audits : logs
 ```
 
-### Key Tables
-- `projects`: Groups repositories and workspaces.
-- `feature_requests`: Stores user specifications and tracking priority statuses.
-- `prds`: Stores AI-generated PRDs (revision tracked).
-- `engineering_tasks`: Stores developer tasks (`BACKLOG`, `TODO`, `IN_PROGRESS`, `IN_REVIEW`, `DONE`) with estimate and priority metadata.
-- `task_generation_audits`: Immutably logs execution attempts (hashes, duration, tokens, error logs).
+### Tables Reference
 
-*Detailed column definitions are cataloged in [Database Documentation](file:///d:/Launchly/docs/database.md).*
+#### `organizations`
+- **Purpose**: Defines tenant workspaces.
+- **Columns**: `id` (UUID, PK), `name` (Varchar), `slug` (Varchar, Unique), `created_at` (Timestamp), `updated_at` (Timestamp).
+
+#### `projects`
+- **Purpose**: Groups related workspaces, specifications, and tasks.
+- **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK -> organizations), `name` (Varchar), `description` (Text), `created_at` (Timestamp), `updated_at` (Timestamp).
+
+#### `feature_requests`
+- **Purpose**: Tracks client requirements.
+- **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK), `project_id` (UUID, FK), `title` (Varchar), `description` (Text), `status` (Enum), `priority` (Enum).
+
+#### `prds`
+- **Purpose**: Product Requirement Documents representing parsed feature requests.
+- **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK), `feature_request_id` (UUID, FK), `problem_statement` (Text), `goals` (Text Array), `non_goals` (Text Array), `user_stories` (JSONB), `acceptance_criteria` (Text Array), `edge_cases` (Text Array), `success_metrics` (Text Array), `version` (Integer).
+- **Versioning**: Each update creates a new PRD record or increments version trackers to preserve history.
+
+#### `engineering_tasks`
+- **Purpose**: Discrete developer task cards mapped to a PRD.
+- **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK), `prd_id` (UUID, FK), `project_id` (UUID, FK), `title` (Varchar), `description` (Text), `status` (Enum: `BACKLOG`, `TODO`, `IN_PROGRESS`, `IN_REVIEW`, `DONE`), `position` (Integer), `version` (Integer), `metadata` (JSONB: AI estimations and complexity).
+
+#### `task_generation_audits`
+- **Purpose**: Immutable history of AI task breakdown runs.
+- **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK), `prd_id` (UUID, FK), `provider` (Varchar), `model` (Varchar), `prompt_hash` (Varchar), `response_hash` (Varchar), `temperature` (Real), `status` (Enum: `QUEUED`, `GENERATING`, `COMPLETED`, `FAILED`), `duration_ms` (Integer), `token_usage` (JSONB), `error` (Text).
+
+#### `repositories`
+- **Purpose**: Links connected GitHub repositories to active workspaces.
+- **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK -> organizations), `project_id` (UUID, FK -> projects, Nullable), `github_installation_id` (UUID, FK -> github_installations), `name` (Varchar), `full_name` (Varchar), `github_repo_id` (Bigint), `owner` (Varchar), `default_branch` (Varchar), `private` (Boolean), `installation_id` (Bigint).
+- **Indexes**: `repositories_org_id_idx` on `organization_id`, unique constraint on `(organization_id, github_repo_id)`.
+
+#### `pull_requests`
+- **Purpose**: Code integrations synchronized from GitHub.
+- **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK -> organizations), `prd_id` (UUID, FK -> prds, Nullable), `repository_id` (UUID, FK -> repositories), `github_pr_id` (Bigint), `number` (Integer), `title` (Varchar), `branch` (Varchar), `base_branch` (Varchar), `head_sha` (Varchar), `base_sha` (Varchar), `state` (Varchar), `author` (Varchar), `url` (Varchar), `merged_at` (Timestamp), `status` (Enum: `OPEN`, `CHANGES_REQUESTED`, `APPROVED`, `MERGED`), `processing_status` (Enum: `RECEIVED`, `PROCESSING`, `READY_FOR_AI_REVIEW`, `FAILED`, `AI_REVIEWING`, `AI_REVIEW_COMPLETED`, `HUMAN_APPROVED`, `SHIPPED`).
+- **Indexes**: `pull_requests_org_id_idx` on `organization_id`, unique constraint on `(organization_id, github_pr_id)`.
+
+#### `pull_request_files`
+- **Purpose**: Mapped list of changed files inside a PR.
+- **Columns**: `id` (UUID, PK), `pull_request_id` (UUID, FK -> pull_requests), `filename` (Varchar), `status` (Varchar), `additions` (Integer), `deletions` (Integer), `changes` (Integer), `patch` (Text, Nullable).
+
+#### `github_webhook_deliveries`
+- **Purpose**: Logs GitHub delivery UUIDs to ensure event processing idempotency.
+- **Columns**: `id` (Varchar, PK), `event_type` (Varchar), `processed_at` (Timestamp).
+
+#### `github_sync_audits`
+- **Purpose**: Immutable history of all GitHub webhook sync executions.
+- **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK -> organizations), `repository_id` (UUID, FK -> repositories, Nullable), `pull_request_id` (UUID, FK -> pull_requests, Nullable), `delivery_id` (Varchar), `event` (Varchar), `status` (Varchar: `RECEIVED`, `PROCESSING`, `COMPLETED`, `FAILED`), `started_at` (Timestamp), `completed_at` (Timestamp), `duration_ms` (Integer), `retry_count` (Integer), `error` (Varchar).
+- **Indexes**: `github_sync_audits_org_id_idx` on `organization_id`, index on `delivery_id`.
+
+---
+
+## API Documentation (`github` Router)
+
+All endpoints require workspace-level scoping and check authorization via the `workspaceProcedure` (injecting `ctx.workspace.active.id`).
+
+### `connect`
+- **Type**: `mutation`
+- **Input**:
+  ```typescript
+  {
+    installationId: number,
+    githubRepositoryId: number,
+    owner: string,
+    name: string,
+    defaultBranch: string,
+    private: boolean,
+    projectId?: string (UUID)
+  }
+  ```
+- **Output**: Mapped database repository object.
+- **Errors**: Throws `UNAUTHORIZED` if user is not in workspace, or standard database transaction errors.
+- **Description**: Registers or links a repository to the workspace, automatically creating/updating the GitHub App installation record.
+
+### `repositories`
+- **Type**: `query`
+- **Input**: `{ fetchAvailableForInstallationId?: number }`
+- **Output**:
+  ```typescript
+  {
+    connected: Repository[],
+    available: AvailableRepo[],
+    installations: Installation[]
+  }
+  ```
+- **Description**: Lists connected workspace repositories and registers installations. If `fetchAvailableForInstallationId` is passed, fetches the latest list of accessible repositories from GitHub.
+
+### `pullRequests`
+- **Type**: `query`
+- **Input**:
+  ```typescript
+  {
+    page?: number,
+    limit?: number,
+    repositoryId?: string (UUID),
+    processingStatus?: "RECEIVED" | "PROCESSING" | "READY_FOR_AI_REVIEW" | "FAILED"
+  }
+  ```
+- **Output**:
+  ```typescript
+  {
+    items: { pullRequest: PullRequest, repositoryName: string, repositoryFullName: string }[],
+    pagination: { page: number, limit: number, totalCount: number, totalPages: number }
+  }
+  ```
+- **Description**: Retrieves a paginated list of pull requests connected to the workspace.
+
+### `pullRequestById`
+- **Type**: `query`
+- **Input**: `{ id: string (UUID) }`
+- **Output**:
+  ```typescript
+  {
+    pullRequest: PullRequest,
+    repository: Repository,
+    files: PullRequestFile[]
+  }
+  ```
+- **Description**: Retrieves a single PR record, its parent repo, and its associated modified files list.
+
+### `pullRequestDiff`
+- **Type**: `query`
+- **Input**: `{ id: string (UUID) }`
+- **Output**: `{ diff: string }`
+- **Description**: Returns the raw patch/diff text for the entire PR dynamically by querying Octokit. Used for displaying large diffs.
 
 ---
 
 ## Environment Variables
 
-Create a `.env` file at the root. Use the provided `.env.example` as a template:
+Ensure a `.env` file exists in the workspace root. Below are the required system parameters:
 
 ```ini
-# Server Configuration
-PORT=8000
-NODE_ENV=development
-BASE_URL=http://localhost:8000
-
-# Web Configuration
-NEXT_PUBLIC_API_URL=http://localhost:8000/trpc
-
-# Database
-DATABASE_URL=postgresql://user:password@host/db?sslmode=require
-
-# Auth Configuration
-BETTER_AUTH_SECRET=placeholder_secret
-BETTER_AUTH_URL=http://localhost:8000
-GOOGLE_CLIENT_ID=google_client_id
-GOOGLE_CLIENT_SECRET=google_client_secret
+# Database Connection URL (PostgreSQL Neon Serverless)
+DATABASE_URL=postgresql://neondb_owner:PASSWORD@ep-xxx-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require
 
 # AI Configuration
-OPENAI_API_KEY=openai_api_key
-MOCK_AI=true # Set to true to bypass OpenAI APIs and use MockProvider
+OPENAI_API_KEY=sk-proj-xxx
+MOCK_AI=true # Set to true to bypass live OpenAI API calls and use Mock data generators
 
-# GitHub Configuration (For Pull Request Reviews)
-GITHUB_APP_ID=github_app_id
-GITHUB_PRIVATE_KEY=github_private_key
-GITHUB_WEBHOOK_SECRET=github_webhook_secret
+# Auth Configurations
+BETTER_AUTH_SECRET=your_32_char_better_auth_secret
+BETTER_AUTH_URL=http://localhost:8000
 
-# Billing
-RAZORPAY_KEY_ID=razorpay_key_id
-RAZORPAY_KEY_SECRET=razorpay_key_secret
+# GitHub App Configuration
+GITHUB_APP_ID=123456
+GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+GITHUB_WEBHOOK_SECRET=your_webhook_hmac_secret
 
-# Inngest
-INNGEST_EVENT_KEY=inngest_event_key
-INNGEST_SIGNING_KEY=inngest_signing_key
+# Inngest Background Queue Configurations
+INNGEST_EVENT_KEY=your_inngest_event_key
+INNGEST_SIGNING_KEY=your_inngest_signing_key
 ```
 
 ---
 
-## Setup Guide
+## Sequence Diagrams
 
-Follow these sequential steps to run Launchly locally:
-
-1. **Install Dependencies:**
-   ```bash
-   pnpm install
-   ```
-2. **Generate Database Migrations:**
-   ```bash
-   pnpm db:generate
-   ```
-3. **Apply Database Migrations:**
-   ```bash
-   pnpm db:migrate
-   ```
-4. **Start Inngest Dev Server:**
-   ```bash
-   npx inngest-cli@latest dev
-   ```
-5. **Start Dev Servers (API & Next.js):**
-   ```bash
-   pnpm dev
-   ```
-6. **Verify Type-Checking:**
-   ```bash
-   pnpm check-types
-   ```
-7. **Compile Workspace Production Build:**
-   ```bash
-   pnpm build
-   ```
-
----
-
-## API Documentation (`task` Router)
-
-All endpoints utilize `workspaceProcedure` and enforce workspace checks.
-
-### Mutations
-- `generate(input: { prdId: string }) ➜ { success: boolean, generationId: string }`
-  Triggers async task generation; throws a `CONFLICT` error if an active generation is running.
-- `updateStatus(input: { taskId: string, status: TaskStatus }) ➜ taskObject`
-  Drags a task card's workflow state.
-- `updatePosition(input: { taskId: string, position: number }) ➜ taskObject`
-  Updates a task card's display position in a column.
-- `delete(input: { taskId: string }) ➜ taskObject`
-  Deletes a task card from the board.
-
-### Queries
-- `list(input: { prdId: string, version?: number }) ➜ taskObject[]`
-  Retrieves tasks for a version iteration (defaults to latest).
-- `listVersions(input: { prdId: string }) ➜ number[]`
-  Lists generated task version numbers.
-- `getGenerationStatus(input: { prdId: string }) ➜ statusObject`
-  Checks status (`NOT_STARTED`, `QUEUED`, `GENERATING`, `COMPLETED`, `FAILED`) and errors.
-- `getGenerationHistory(input: { prdId: string }) ➜ auditObject[]`
-  Fetches full immutable generation attempts.
-
----
-
-## AI Task Generation Flow (Sequence Diagram)
-
+### 1. GitHub App Installation
 ```mermaid
 sequenceDiagram
-    User->>apps/web: Click Generate Tasks
-    apps/web->>apps/api (tRPC): Mutation task.generate
-    apps/api (tRPC)->>packages/services (TaskService): triggerTaskGeneration
-    packages/services (TaskService)->>packages/database: Row lock SELECT FOR UPDATE
-    packages/services (TaskService)->>packages/database: Insert QUEUED audit record
-    packages/services (TaskService)->>packages/inngest: Dispatch task.generate event
-    packages/inngest (Worker)->>packages/database: Verify and check idempotency key
-    packages/inngest (Worker)->>packages/database: Update status to GENERATING
-    packages/inngest (Worker)->>packages/ai: Call provider.generateTasks(prd)
-    packages/ai->>packages/inngest (Worker): Return JSON task list
-    packages/inngest (Worker)->>packages/database: Insert tasks in transaction (nextVersion)
-    packages/inngest (Worker)->>packages/database: Update audit record (status: COMPLETED)
-    apps/web->>apps/api (tRPC): Query getGenerationStatus (Poll)
-    apps/api (tRPC)->>apps/web: Status updated to COMPLETED
-    apps/web->>apps/web: Render Kanban board
+    autonumber
+    actor User as Workspace Owner
+    participant GH as GitHub Portal
+    participant Web as apps/web (Frontend)
+    participant API as apps/api (tRPC)
+    participant DB as packages/database (Neon PG)
+
+    User->>Web: Clicks "Install GitHub App"
+    Web->>GH: Redirects to github.com/apps/your-app/installations/new
+    User->>GH: Approves installation & scopes repo access
+    GH-->>Web: Redirects back to /github?installation_id=123
+    Web->>API: Query github.repositories({ fetchAvailableForInstallationId: 123 })
+    API->>GH: Fetch Installation Details (Account Metadata)
+    API->>DB: Upsert installation details into github_installations
+    API-->>Web: Returns available repos and installations
+    Web-->>User: Renders repository connection interface
+```
+
+### 2. Webhook Processing
+```mermaid
+sequenceDiagram
+    autonumber
+    participant GH as GitHub Events
+    participant API as apps/api (Express Webhook)
+    participant DB as packages/database (Neon PG)
+    participant Inngest as Inngest Cloud
+
+    GH->>API: POST /api/webhooks/github (Headers: signature, delivery-id, event)
+    API->>API: Verify HMAC-SHA256 signature
+    alt Signature Invalid
+        API-->>GH: HTTP 401 Unauthorized
+    else Signature Valid
+        API->>DB: Query delivery_id in github_webhook_deliveries
+        alt Delivery Exists (Duplicate)
+            API-->>GH: HTTP 200 OK (Skip duplicate event)
+        else Delivery New
+            API->>DB: Save delivery_id
+            API->>DB: Create github_sync_audits record (status: RECEIVED)
+            API->>Inngest: Send event: github.pull_request.received (with auditId)
+            API-->>GH: HTTP 200 OK (Fast Ack <100ms)
+        end
+    end
+```
+
+### 3. Pull Request Ingestion
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Inngest as Inngest Runner
+    participant DB as packages/database (Neon PG)
+    participant GH_API as GitHub API (Octokit)
+
+    Inngest->>DB: Update github_sync_audits (status: PROCESSING, retryCount: attempt)
+    Inngest->>DB: Fetch Repository details (owner/name)
+    Inngest->>DB: Upsert pull_requests record (processing_status: PROCESSING)
+    Inngest->>GH_API: Fetch PR Details (branches, commits, state, base/head SHAs)
+    Inngest->>GH_API: Fetch Changed Files (filename, additions, deletions, changes)
+    Inngest->>DB: Update pull_requests with metadata
+    rect rgb(20, 20, 30)
+        Note over Inngest,DB: DB Transaction
+        Inngest->>DB: Delete old pull_request_files records
+        Inngest->>DB: Bulk insert new pull_request_files (patches >20KB stored as NULL)
+    end
+    Inngest->>DB: Update pull_requests (processing_status: READY_FOR_AI_REVIEW)
+    Inngest->>DB: Update github_sync_audits (status: COMPLETED, durationMs)
+    Inngest->>Inngest: Send completion event: github.pull_request.processed
+```
+
+### 4. Task Generation
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Workspace Owner
+    participant Web as apps/web (Kanban)
+    participant API as apps/api (tRPC)
+    participant DB as packages/database
+    participant Inngest as Inngest Background
+    participant AI as packages/ai (OpenAI / Mock)
+
+    User->>Web: Clicks "Break Down Spec into Tasks"
+    Web->>API: Mutation task.generate({ prdId })
+    API->>DB: Lock PRD row (SELECT FOR UPDATE)
+    API->>DB: Insert task_generation_audits record (status: QUEUED)
+    API->>Inngest: Send event: task.generate (with generationId)
+    API-->>Web: Returns { success: true, generationId }
+    Note over Web,API: Web polls getGenerationStatus every 2s
+    
+    Inngest->>DB: Update audit status to GENERATING
+    Inngest->>DB: Fetch PRD details
+    Inngest->>AI: Call provider.generateTasks(prdObject)
+    AI-->>Inngest: Returns task breakdown list & token usage
+    Inngest->>DB: Bulk-insert tasks into engineering_tasks
+    Inngest->>DB: Update audit record (status: COMPLETED, duration, hashes)
+    
+    Web->>API: Poll getGenerationStatus -> COMPLETED
+    Web->>API: Query task.list({ prdId })
+    API-->>Web: Returns task list array
+    Web->>Web: Renders Kanban board
+```
+
+### 5. Complete Product Flow
+```mermaid
+graph TD
+    FR[Feature Request Entered] -->|AI Scans Requirements| Clarify{Clarification Needed?}
+    Clarify -->|Yes| ClarifyQuestions[AI Proposes Questions]
+    ClarifyQuestions -->|User Answers| FR
+    Clarify -->|No| PRD[Generate PRD spec]
+    PRD -->|Save & Iterate| Versioning[PRD Versioning]
+    Versioning -->|Trigger Task Breakdown| TaskGen[AI Task Breakdown]
+    TaskGen -->|Render| Kanban[Kanban Boards]
+    Kanban -->|Write Code & Push PR| Webhook[GitHub Webhook Received]
+    Webhook -->|Verify Signature & Idempotency| Ingest[Fetch PR Metadata & Modified Files]
+    Ingest -->|Save Files & Lazy Load Diff| PRDetail[Render PR detail & file diffs]
+    PRDetail -->|Start Code Evaluation| AIReview["(Upcoming) AI Code Review"]
+    AIReview -->|Review Score & Inline Suggestion| Human["(Upcoming) Human Approval Gates"]
+    Human -->|Approve & Release| Ship["(Upcoming) Shipped to Production"]
 ```
 
 ---
 
 ## Production Readiness Features
 
-- **Optimistic Updates:** Immediate Kanban board adjustments with zero UI delay. Automatically rolls back to prior state if background mutations fail.
-- **Generation status polling:** Reactive UI state mapping. Automatically poll on active runs and suspend requests immediately on complete/fail.
-- **Audit Logging & Retry:** Immutably persist errors. Retry trigger preserves historical logs by creating new records, keeping audit histories clean.
-
----
-
-## Known Limitations
-
-- **GitHub Integrations:** Pull request event handlers and comments are scheduled for the next development phase.
-- **AI Review Loop:** Code evaluation and line-level code suggestions are pending GitHub auth integrations.
-- **Human Approval:** Feature gates to approve releases manually are in draft status.
-- **Test Infrastructure:** Unit tests and CI assertions are pending framework installations.
+- **Webhook Idempotency**: Double execution prevention by recording unique delivery IDs in Postgres.
+- **Tenant Isolation**: Row-level organization checks enforced via `workspaceProcedure` on all routes.
+- **Large Diff Handling**: Memory footprint reduction by storing only small patches (<20KB) in the database and loading larger patches on-demand.
+- **Webhook Auditing**: Immutable audit trails logs durations, statuses, retry attempts, and exceptions to ensure full pipeline visibility.

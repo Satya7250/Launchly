@@ -25,6 +25,8 @@
   "dependencies": {
     "better-auth": "^1.6.20",
     "@repo/auth": "workspace:*",
+    "@repo/database": "workspace:*",
+    "@repo/github": "workspace:*",
     "@repo/inngest": "workspace:*",
     "@repo/trpc": "workspace:*",
     "@repo/logger": "workspace:*",

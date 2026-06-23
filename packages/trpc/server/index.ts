@@ -7,6 +7,7 @@ import { projectRouter } from "./routes/project/route.js";
 import { featureRequestRouter } from "./routes/feature-request/route.js";
 import { prdRouter } from "./routes/prd/route.js";
 import { taskRouter } from "./routes/task/route.js";
+import { githubRouter } from "./routes/github/route.js";
 
 export const serverRouter = router({
   health: healthRouter,
@@ -16,9 +17,11 @@ export const serverRouter = router({
   featureRequest: featureRequestRouter,
   prd: prdRouter,
   task: taskRouter,
+  github: githubRouter,
 });
 
 
 export { createContext } from "./context.js";
 export type ServerRouter = typeof serverRouter;
+
 

@@ -6,7 +6,7 @@ import {
   router,
   createResponse,
 } from "../../trpc.js";
-import { workspaceService } from "@repo/services";
+import { workspaceService, demoService } from "@repo/services";
 import { throwTrpcError } from "../../utils/errors.js";
 
 export const workspaceRouter = router({
@@ -90,4 +90,29 @@ export const workspaceRouter = router({
         throw err;
       }
     }),
+
+  seedDemoWorkspace: authedProcedure
+    .use(rateLimitMiddleware(5, 60 * 1000))
+    .mutation(async ({ ctx }) => {
+      try {
+        const workspace = await demoService.seedDemoData(
+          ctx.auth.user.id,
+          ctx.requestId
+        );
+
+        if (ctx.res) {
+          ctx.res.cookie("active_workspace_id", workspace.id, {
+            httpOnly: true,
+            sameSite: "lax",
+            path: "/",
+            secure: process.env.NODE_ENV === "production",
+          });
+        }
+
+        return createResponse({ workspace }, ctx);
+      } catch (err: any) {
+        throw err;
+      }
+    }),
 });
+

@@ -9,6 +9,7 @@ import { featureRequestsTable } from "./feature-requests";
 import { prdsTable } from "./prds";
 import { engineeringTasksTable } from "./engineering-tasks";
 import { pullRequestsTable } from "./pull-requests";
+import { pullRequestFilesTable } from "./pull-request-files";
 import { aiReviewsTable } from "./ai-reviews";
 import { reviewIssuesTable } from "./review-issues";
 import { reviewHistoryTable } from "./review-history";
@@ -16,6 +17,7 @@ import { releasesTable } from "./releases";
 import { subscriptionsTable } from "./subscriptions";
 import { usageTable } from "./usage";
 import { taskGenerationAuditsTable } from "./task-generation-audits";
+import { githubSyncAuditsTable } from "./github-sync-audits";
 
 export const organizationsRelations = relations(organizationsTable, ({ many, one }) => ({
   memberships: many(membershipsTable),
@@ -33,6 +35,7 @@ export const organizationsRelations = relations(organizationsTable, ({ many, one
   subscription: one(subscriptionsTable),
   usages: many(usageTable),
   taskGenerationAudits: many(taskGenerationAuditsTable),
+  githubSyncAudits: many(githubSyncAuditsTable),
 }));
 
 export const usersRelations = relations(usersTable, ({ many }) => ({
@@ -87,7 +90,7 @@ export const projectsRelations = relations(projectsTable, ({ one, many }) => ({
   engineeringTasks: many(engineeringTasksTable),
 }));
 
-export const repositoriesRelations = relations(repositoriesTable, ({ one }) => ({
+export const repositoriesRelations = relations(repositoriesTable, ({ one, many }) => ({
   organization: one(organizationsTable, {
     fields: [repositoriesTable.organizationId],
     references: [organizationsTable.id],
@@ -100,6 +103,8 @@ export const repositoriesRelations = relations(repositoriesTable, ({ one }) => (
     fields: [repositoriesTable.githubInstallationId],
     references: [githubInstallationsTable.id],
   }),
+  pullRequests: many(pullRequestsTable),
+  syncAudits: many(githubSyncAuditsTable),
 }));
 
 export const featureRequestsRelations = relations(featureRequestsTable, ({ one, many }) => ({
@@ -166,9 +171,22 @@ export const pullRequestsRelations = relations(pullRequestsTable, ({ one, many }
     fields: [pullRequestsTable.prdId],
     references: [prdsTable.id],
   }),
+  repository: one(repositoriesTable, {
+    fields: [pullRequestsTable.repositoryId],
+    references: [repositoriesTable.id],
+  }),
+  files: many(pullRequestFilesTable),
   aiReviews: many(aiReviewsTable),
   reviewHistory: many(reviewHistoryTable),
   releases: many(releasesTable),
+  syncAudits: many(githubSyncAuditsTable),
+}));
+
+export const pullRequestFilesRelations = relations(pullRequestFilesTable, ({ one }) => ({
+  pullRequest: one(pullRequestsTable, {
+    fields: [pullRequestFilesTable.pullRequestId],
+    references: [pullRequestsTable.id],
+  }),
 }));
 
 export const aiReviewsRelations = relations(aiReviewsTable, ({ one, many }) => ({
@@ -238,5 +256,20 @@ export const taskGenerationAuditsRelations = relations(taskGenerationAuditsTable
   prd: one(prdsTable, {
     fields: [taskGenerationAuditsTable.prdId],
     references: [prdsTable.id],
+  }),
+}));
+
+export const githubSyncAuditsRelations = relations(githubSyncAuditsTable, ({ one }) => ({
+  organization: one(organizationsTable, {
+    fields: [githubSyncAuditsTable.organizationId],
+    references: [organizationsTable.id],
+  }),
+  repository: one(repositoriesTable, {
+    fields: [githubSyncAuditsTable.repositoryId],
+    references: [repositoriesTable.id],
+  }),
+  pullRequest: one(pullRequestsTable, {
+    fields: [githubSyncAuditsTable.pullRequestId],
+    references: [pullRequestsTable.id],
   }),
 }));

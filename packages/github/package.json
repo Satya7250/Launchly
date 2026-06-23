@@ -24,6 +24,9 @@
   },
   "dependencies": {
     "@repo/shared": "workspace:*",
+    "@octokit/webhooks": "^12.0.10",
+    "@octokit/webhooks-methods": "^5.0.1",
+    "octokit": "^4.0.2",
     "zod": "^4.3.5"
   }
 }
