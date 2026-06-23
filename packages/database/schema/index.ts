@@ -12,6 +12,8 @@ export * from "./pull-requests";
 export * from "./pull-request-files";
 export * from "./github-webhook-deliveries";
 export * from "./ai-reviews";
+export * from "./ai-review-findings";
+export * from "./ai-review-audits";
 export * from "./review-issues";
 export * from "./review-history";
 export * from "./releases";

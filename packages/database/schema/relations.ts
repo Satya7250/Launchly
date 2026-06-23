@@ -11,6 +11,8 @@ import { engineeringTasksTable } from "./engineering-tasks";
 import { pullRequestsTable } from "./pull-requests";
 import { pullRequestFilesTable } from "./pull-request-files";
 import { aiReviewsTable } from "./ai-reviews";
+import { aiReviewFindingsTable } from "./ai-review-findings";
+import { aiReviewAuditsTable } from "./ai-review-audits";
 import { reviewIssuesTable } from "./review-issues";
 import { reviewHistoryTable } from "./review-history";
 import { releasesTable } from "./releases";
@@ -199,6 +201,22 @@ export const aiReviewsRelations = relations(aiReviewsTable, ({ one, many }) => (
     references: [pullRequestsTable.id],
   }),
   reviewIssues: many(reviewIssuesTable),
+  findings: many(aiReviewFindingsTable),
+  audits: many(aiReviewAuditsTable),
+}));
+
+export const aiReviewFindingsRelations = relations(aiReviewFindingsTable, ({ one }) => ({
+  review: one(aiReviewsTable, {
+    fields: [aiReviewFindingsTable.reviewId],
+    references: [aiReviewsTable.id],
+  }),
+}));
+
+export const aiReviewAuditsRelations = relations(aiReviewAuditsTable, ({ one }) => ({
+  review: one(aiReviewsTable, {
+    fields: [aiReviewAuditsTable.reviewId],
+    references: [aiReviewsTable.id],
+  }),
 }));
 
 export const reviewIssuesRelations = relations(reviewIssuesTable, ({ one }) => ({

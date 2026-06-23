@@ -73,3 +73,28 @@ export const pullRequestProcessingStatusEnum = pgEnum("pull_request_processing_s
   "SHIPPED",
 ]);
 
+export const aiReviewRecommendationEnum = pgEnum("ai_review_recommendation", [
+  "APPROVE",
+  "REQUEST_CHANGES",
+  "COMMENT",
+]);
+
+export const aiFindingSeverityEnum = pgEnum("ai_finding_severity", [
+  "CRITICAL",
+  "HIGH",
+  "MEDIUM",
+  "LOW",
+  "INFO",
+]);
+
+export const aiFindingCategoryEnum = pgEnum("ai_finding_category", [
+  "SECURITY",
+  "PERFORMANCE",
+  "ARCHITECTURE",
+  "CORRECTNESS",
+  "STYLE",
+  "DOCUMENTATION",
+  "TEST_COVERAGE",
+  "OTHER",
+]);
+

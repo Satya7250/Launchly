@@ -12,4 +12,5 @@ export { featureRequestService, FeatureRequestService } from "./feature-request.
 export { prdService, PRDService } from "./prd.js";
 export { taskService, TaskService } from "./task.js";
 export { demoService, DemoService } from "./demo.js";
+export { aiReviewService, AIReviewService, AIReviewError } from "./ai-review.js";
 
