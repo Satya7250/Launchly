@@ -50,6 +50,12 @@ erDiagram
     
     pull_requests ||--o{ pull_request_files : contains
     pull_requests ||--o{ github_sync_audits : logs
+    pull_requests ||--o{ release_approvals : approvals
+
+    organizations ||--o{ release_approvals : tracks
+    projects ||--o{ release_approvals : groups
+    ai_reviews ||--o{ release_approvals : logs
+    users ||--o{ release_approvals : decides
 ```
 
 ---
@@ -555,3 +561,33 @@ erDiagram
 
 #### Relationships
 - Many-to-One: `organizations`
+
+---
+
+### release_approvals
+**Purpose**: Stores historical, immutable approval/rejection audit trail entries.  
+**Primary Key**: `id` (uuid, defaultRandom)
+
+#### Columns
+| Column | Type | Description |
+|---|---|---|
+| `id` | uuid | Primary key |
+| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
+| `project_id` | uuid | Reference to `projects.id` (cascade onDelete) |
+| `pull_request_id` | uuid | Reference to `pull_requests.id` (cascade onDelete) |
+| `review_id` | uuid | Reference to `ai_reviews.id` (set null onDelete) |
+| `review_version` | integer | Associated AI review version when action was taken |
+| `approved_by` | uuid | Reference to `users.id` (set null onDelete, user who approved/rejected) |
+| `status` | enum | Decision status (`PENDING`, `APPROVED`, `REJECTED`) |
+| `comments` | text | Rejection or approval notes |
+| `created_at` | timestamp | Creation/Log timestamp |
+| `updated_at` | timestamp | Update timestamp |
+
+#### Constraints & Indexes
+- Index: `release_approvals_org_id_idx` on `organization_id`.
+- Index: `release_approvals_pull_request_id_idx` on `pull_request_id`.
+- Index: `release_approvals_status_idx` on `status`.
+
+#### Relationships
+- Many-to-One: `organizations`, `projects`, `pull_requests`, `ai_reviews`, `users`
+

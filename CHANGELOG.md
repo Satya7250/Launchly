@@ -4,6 +4,35 @@ All notable changes to the Launchly platform will be documented in this file.
 
 ---
 
+## Phase 5: Human Approval & Release Workflow
+
+Phase 5 introduces a comprehensive, human-in-the-loop release gate before pull requests can move to the `SHIPPED` status. It provides automated checklist compliance, transactional state validations, and a permanent, immutable audit history.
+
+### New Features
+
+#### Release Compliance Checklist
+- **PRD Validation**: Verifies a PRD has been generated and linked to the Pull Request.
+- **Task Generation Gate**: Confirms engineering tasks exist for the linked PRD.
+- **AI Review Completion**: Checks if the latest AI review has been completed.
+- **Blocking Finding Guard**: Scans for findings with `CRITICAL` or `HIGH` severity and prevents release approval if any blocking issues remain.
+
+#### Release State Machine
+- **State Flow**: Implements a strict release lifecycle: `NOT_READY` ➜ `READY_FOR_APPROVAL` ➜ `APPROVED` ➜ `SHIPPED` or ➜ `REJECTED`.
+- **Server-Side Validation**: Enforces transition validations on the server; invalid transitions result in 409 Conflicts.
+- **Transactional Atomicity**: All state updates (release status, pull request status, and approval records) execute atomically inside a single database transaction.
+
+#### Immutable Audit Trail
+- **Record Appending**: Every request, approval, and rejection appends a new entry to the `release_approvals` table.
+- **Historical Visibility**: Prevents overwriting any approval rows to maintain a transparent, persistent log showing reviewers, comments, review versions, and timestamps.
+- **Tenant Boundaries**: Enforces strict workspace isolation boundaries on all queries and mutations.
+
+#### Frontend UI & Badges
+- **Dedicated Release Approval page**: Allows developers to view checklist compliance status, request approval, approve or reject releases (requiring comments on rejection), and view the audit timeline.
+- **Lifecycle Badge Updates**: Refines pull request badges on the PR list and details views to support `AI_REVIEWING`, `AI_REVIEW_COMPLETED`, `HUMAN_APPROVED`, and `SHIPPED` states.
+
+---
+
+
 ## Phase 3: GitHub Integration & Pull Request Ingestion
 
 Phase 3 implements a complete production-ready GitHub integration module enabling workspace owners to install the Launchly GitHub App, connect repositories, securely ingest pull requests via signature-verified webhooks, track modified files with lazy-loaded patches, and audit webhook execution pipelines.

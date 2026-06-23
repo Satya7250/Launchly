@@ -21,5 +21,7 @@ export * from "./subscriptions";
 export * from "./usage";
 export * from "./task-generation-audits";
 export * from "./github-sync-audits";
+export * from "./release_approvals";
 export * from "./relations";
+
 

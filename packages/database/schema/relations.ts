@@ -20,6 +20,8 @@ import { subscriptionsTable } from "./subscriptions";
 import { usageTable } from "./usage";
 import { taskGenerationAuditsTable } from "./task-generation-audits";
 import { githubSyncAuditsTable } from "./github-sync-audits";
+import { releaseApprovalsTable } from "./release_approvals";
+
 
 export const organizationsRelations = relations(organizationsTable, ({ many, one }) => ({
   memberships: many(membershipsTable),
@@ -34,6 +36,7 @@ export const organizationsRelations = relations(organizationsTable, ({ many, one
   reviewIssues: many(reviewIssuesTable),
   reviewHistory: many(reviewHistoryTable),
   releases: many(releasesTable),
+  releaseApprovals: many(releaseApprovalsTable),
   subscription: one(subscriptionsTable),
   usages: many(usageTable),
   taskGenerationAudits: many(taskGenerationAuditsTable),
@@ -47,6 +50,7 @@ export const usersRelations = relations(usersTable, ({ many }) => ({
   accounts: many(accountsTable),
   createdFeatureRequests: many(featureRequestsTable, { relationName: "creator" }),
   assignedFeatureRequests: many(featureRequestsTable, { relationName: "assignee" }),
+  approvedReleaseApprovals: many(releaseApprovalsTable),
 }));
 
 export const sessionsRelations = relations(sessionsTable, ({ one }) => ({
@@ -90,6 +94,7 @@ export const projectsRelations = relations(projectsTable, ({ one, many }) => ({
   repositories: many(repositoriesTable),
   featureRequests: many(featureRequestsTable),
   engineeringTasks: many(engineeringTasksTable),
+  releaseApprovals: many(releaseApprovalsTable),
 }));
 
 export const repositoriesRelations = relations(repositoriesTable, ({ one, many }) => ({
@@ -181,6 +186,7 @@ export const pullRequestsRelations = relations(pullRequestsTable, ({ one, many }
   aiReviews: many(aiReviewsTable),
   reviewHistory: many(reviewHistoryTable),
   releases: many(releasesTable),
+  releaseApprovals: many(releaseApprovalsTable),
   syncAudits: many(githubSyncAuditsTable),
 }));
 
@@ -291,3 +297,27 @@ export const githubSyncAuditsRelations = relations(githubSyncAuditsTable, ({ one
     references: [pullRequestsTable.id],
   }),
 }));
+
+export const releaseApprovalsRelations = relations(releaseApprovalsTable, ({ one }) => ({
+  organization: one(organizationsTable, {
+    fields: [releaseApprovalsTable.organizationId],
+    references: [organizationsTable.id],
+  }),
+  project: one(projectsTable, {
+    fields: [releaseApprovalsTable.projectId],
+    references: [projectsTable.id],
+  }),
+  pullRequest: one(pullRequestsTable, {
+    fields: [releaseApprovalsTable.pullRequestId],
+    references: [pullRequestsTable.id],
+  }),
+  review: one(aiReviewsTable, {
+    fields: [releaseApprovalsTable.reviewId],
+    references: [aiReviewsTable.id],
+  }),
+  approvedByUser: one(usersTable, {
+    fields: [releaseApprovalsTable.approvedBy],
+    references: [usersTable.id],
+  }),
+}));
+

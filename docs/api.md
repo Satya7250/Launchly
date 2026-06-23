@@ -402,3 +402,96 @@ Exposes procedures for querying, switching, creating, and seeding workspaces.
   ```
 - **Description**: Seeds the database with highly comprehensive, premium demo data (including workspaces, projects, specifications, PRDs, Kanban task boards, and signature-verified mock pull request files) scoped to the logged-in user account, returning the newly created organization model details.
 
+---
+
+### 6. `approval` Router
+Exposes procedures for querying checklist compliance, requesting approval, and approving/rejecting releases.
+
+#### `status`
+- **Type**: `query`
+- **Procedure Access**: `workspaceProcedure` (Workspace scoped)
+- **Input Schema**:
+  ```typescript
+  z.object({
+    pullRequestId: z.string().uuid()
+  })
+  ```
+- **Output Schema**:
+  ```typescript
+  z.object({
+    checklist: z.object({
+      prdExists: z.boolean(),
+      tasksExist: z.boolean(),
+      pullRequestExists: z.boolean(),
+      aiReviewCompleted: z.boolean(),
+      blockingFindingsCount: z.number(),
+    }),
+    releaseStatus: z.enum(["NOT_READY", "READY_FOR_APPROVAL", "APPROVED", "SHIPPED", "REJECTED"]),
+    latestApproval: releaseApprovalModel.nullable()
+  })
+  ```
+- **Description**: Evaluates and returns the compliance checklist status, current release status, and the latest approval transaction record.
+
+#### `history`
+- **Type**: `query`
+- **Procedure Access**: `workspaceProcedure` (Workspace scoped)
+- **Input Schema**:
+  ```typescript
+  z.object({
+    pullRequestId: z.string().uuid()
+  })
+  ```
+- **Output Schema**: `z.array(releaseApprovalModel)`
+- **Description**: Returns the chronological audit history of all release requests, approvals, and rejections.
+
+#### `request`
+- **Type**: `mutation`
+- **Procedure Access**: `workspaceProcedure` (Workspace scoped)
+- **Input Schema**:
+  ```typescript
+  z.object({
+    pullRequestId: z.string().uuid(),
+    comments: z.string().optional()
+  })
+  ```
+- **Output Schema**: `releaseApprovalModel`
+- **Errors**:
+  - `NOT_FOUND` (if pull request doesn't exist)
+  - `BAD_REQUEST` (if repository/project associations are missing)
+  - `CONFLICT` (if release state transition is invalid)
+- **Description**: Initiates a release approval request. Transitions the release status to `READY_FOR_APPROVAL` and appends a `PENDING` audit entry.
+
+#### `approve`
+- **Type**: `mutation`
+- **Procedure Access**: `workspaceProcedure` (Workspace scoped)
+- **Input Schema**:
+  ```typescript
+  z.object({
+    pullRequestId: z.string().uuid(),
+    comments: z.string().optional()
+  })
+  ```
+- **Output Schema**: `releaseApprovalModel`
+- **Errors**:
+  - `NOT_FOUND` (if pull request doesn't exist)
+  - `CONFLICT` (if release state transition is invalid)
+  - `PRECONDITION_FAILED` (if checklist requirements such as AI review status or open blocking findings are not met)
+- **Description**: Approves a release. Transitions release status to `APPROVED`, pull request processingStatus to `HUMAN_APPROVED` / status to `APPROVED`, and appends an `APPROVED` audit entry.
+
+#### `reject`
+- **Type**: `mutation`
+- **Procedure Access**: `workspaceProcedure` (Workspace scoped)
+- **Input Schema**:
+  ```typescript
+  z.object({
+    pullRequestId: z.string().uuid(),
+    comments: z.string()
+  })
+  ```
+- **Output Schema**: `releaseApprovalModel`
+- **Errors**:
+  - `NOT_FOUND` (if pull request doesn't exist)
+  - `CONFLICT` (if release state transition is invalid)
+- **Description**: Rejects a release. Transitions release status to `REJECTED`, pull request status to `CHANGES_REQUESTED` (resetting processingStatus to `READY_FOR_AI_REVIEW` to allow code corrections and review regeneration), and appends a `REJECTED` audit entry.
+
+

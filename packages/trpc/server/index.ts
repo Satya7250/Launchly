@@ -9,6 +9,7 @@ import { prdRouter } from "./routes/prd/route.js";
 import { taskRouter } from "./routes/task/route.js";
 import { githubRouter } from "./routes/github/route.js";
 import { reviewRouter } from "./routes/review/route.js";
+import { approvalRouter } from "./routes/approval/route.js";
 
 export const serverRouter = router({
   health: healthRouter,
@@ -20,6 +21,7 @@ export const serverRouter = router({
   task: taskRouter,
   github: githubRouter,
   review: reviewRouter,
+  approval: approvalRouter,
 });
 
 

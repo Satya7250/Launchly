@@ -14,7 +14,7 @@ export const releasesTable = pgTable(
       .references(() => pullRequestsTable.id, { onDelete: "restrict" })
       .notNull(),
     version: varchar("version", { length: 100 }).notNull(),
-    status: releaseStatusEnum("status").default("PENDING").notNull(),
+    status: releaseStatusEnum("status").default("NOT_READY").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

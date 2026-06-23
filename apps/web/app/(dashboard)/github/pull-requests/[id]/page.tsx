@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { trpc } from "~/trpc/client";
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
@@ -20,6 +21,7 @@ import {
   AlertTriangle,
   Download,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "~/lib/utils";
@@ -198,6 +200,11 @@ export default function PullRequestDetailPage() {
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
+            <Link href={`/github/pull-requests/${pr.id}/release-approval`}>
+              <Button size="sm" className="gap-1.5">
+                Release Approval <ShieldCheck className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
             <a href={pr.url} target="_blank" rel="noopener noreferrer">
               <Button variant="outline" size="sm" className="gap-1.5 bg-card/40 border-border/60">
                 View on GitHub <ExternalLink className="h-3.5 w-3.5" />

@@ -122,6 +122,7 @@ erDiagram
     organizations ||--o{ engineering_tasks : tracks
     organizations ||--o{ ai_reviews : has
     organizations ||--o{ ai_review_audits : logs
+    organizations ||--o{ release_approvals : tracks
 
     github_installations ||--o{ repositories : links
     repositories ||--o{ pull_requests : contains
@@ -129,8 +130,11 @@ erDiagram
     pull_requests ||--o{ pull_request_files : modifies
     pull_requests ||--o{ github_sync_audits : logs
     pull_requests ||--o{ ai_reviews : reviewed
+    pull_requests ||--o{ release_approvals : approvals
     ai_reviews ||--o{ ai_review_findings : has
     ai_reviews ||--o{ ai_review_audits : audited
+    ai_reviews ||--o{ release_approvals : logs
+    users ||--o{ release_approvals : decides
 ```
 
 ### Tables Reference
@@ -182,6 +186,16 @@ erDiagram
 - **Purpose**: Immutable history of all GitHub webhook sync executions.
 - **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK -> organizations), `repository_id` (UUID, FK -> repositories, Nullable), `pull_request_id` (UUID, FK -> pull_requests, Nullable), `delivery_id` (Varchar), `event` (Varchar), `status` (Varchar: `RECEIVED`, `PROCESSING`, `COMPLETED`, `FAILED`), `started_at` (Timestamp), `completed_at` (Timestamp), `duration_ms` (Integer), `retry_count` (Integer), `error` (Varchar).
 - **Indexes**: `github_sync_audits_org_id_idx` on `organization_id`, index on `delivery_id`.
+
+#### `releases`
+- **Purpose**: Tracks the lifecycle state of a release for a pull request.
+- **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK → organizations), `pull_request_id` (UUID, FK → pull_requests, RESTRICT on delete), `version` (Varchar), `status` (Enum: `NOT_READY`, `READY_FOR_APPROVAL`, `APPROVED`, `SHIPPED`, `REJECTED`).
+- **Indexes**: `releases_org_id_idx` on `organization_id`, `releases_pull_request_id_idx` on `pull_request_id`, `releases_status_idx` on `status`.
+
+#### `release_approvals`
+- **Purpose**: Immutable, append-only audit log of all release decisions (request, approve, reject). Records are never updated or deleted.
+- **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK → organizations), `project_id` (UUID, FK → projects), `pull_request_id` (UUID, FK → pull_requests), `review_id` (UUID, FK → ai_reviews, nullable), `review_version` (Integer, nullable), `approved_by` (UUID, FK → users, nullable), `status` (Enum: `PENDING`, `APPROVED`, `REJECTED`), `comments` (Text, nullable), `created_at` (Timestamp), `updated_at` (Timestamp).
+- **Indexes**: `release_approvals_org_id_idx` on `organization_id`, `release_approvals_pull_request_id_idx` on `pull_request_id`, `release_approvals_status_idx` on `status`.
 
 ---
 
@@ -448,4 +462,7 @@ graph TD
 - **Webhook Idempotency**: Double execution prevention by recording unique delivery IDs in Postgres.
 - **Tenant Isolation**: Row-level organization checks enforced via `workspaceProcedure` on all routes.
 - **Large Diff Handling**: Memory footprint reduction by storing only small patches (<20KB) in the database and loading larger patches on-demand.
-- **Webhook Auditing**: Immutable audit trails logs durations, statuses, retry attempts, and exceptions to ensure full pipeline visibility.
+- **Webhook Auditing**: Immutable audit trails log durations, statuses, retry attempts, and exceptions to ensure full pipeline visibility.
+- **Human Approval Gate**: Releases cannot be shipped without explicit human approval. All approval decisions (request, approve, reject) are stored as immutable records in `release_approvals` — never overwritten.
+- **Atomic State Transitions**: Every release state change (release row + PR row + audit record) executes inside a single database transaction, preventing partial updates.
+- **AI-Gated Approvals**: Releases with an incomplete AI review or unresolved `CRITICAL`/`HIGH` severity findings are blocked from approval at the server level, returning `428 PRECONDITION_FAILED`.

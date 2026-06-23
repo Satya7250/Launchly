@@ -30,7 +30,20 @@ export const pullRequestStatusEnum = pgEnum("pull_request_status", [
 
 export const reviewSeverityEnum = pgEnum("review_severity", ["BLOCKING", "NON_BLOCKING"]);
 
-export const releaseStatusEnum = pgEnum("release_status", ["PENDING", "APPROVED", "SHIPPED"]);
+export const releaseStatusEnum = pgEnum("release_status", [
+  "NOT_READY",
+  "READY_FOR_APPROVAL",
+  "APPROVED",
+  "SHIPPED",
+  "REJECTED",
+]);
+
+export const approvalStatusEnum = pgEnum("approval_status", [
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+]);
+
 
 export const subscriptionPlanEnum = pgEnum("subscription_plan", ["FREE", "PRO", "TEAM"]);
 

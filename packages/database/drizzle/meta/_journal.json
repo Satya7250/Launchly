@@ -78,6 +78,13 @@
       "when": 1782194183131,
       "tag": "0010_burly_union_jack",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782234371878,
+      "tag": "0011_strong_catseye",
+      "breakpoints": true
     }
   ]
 }

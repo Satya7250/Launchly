@@ -211,8 +211,30 @@ sequenceDiagram
     API->>RP: Create checkout session
     RP-->>API: Return Checkout credentials
     API-->>Web: Render checkout modal
-    Admin->>Web: Completes payment
     RP->>API: POST /api/billing/webhook (Signature Verified)
     API->>DB: Update subscriptions status and tier
     API-->>RP: HTTP 200 OK
 ```
+
+### 5. Release Approval & Release State Machine
+Release approvals implement a strict human-in-the-loop gate before features can transition to production. This workflow guarantees that a release meets all compliance constraints:
+
+```mermaid
+stateDiagram-v2
+    [*] --> NOT_READY : Release Created
+    NOT_READY --> READY_FOR_APPROVAL : requestApproval() (Checklist Met)
+    REJECTED --> READY_FOR_APPROVAL : requestApproval() (Checklist Re-Verified)
+    READY_FOR_APPROVAL --> APPROVED : approveRelease() (Checklist Validated & Approved)
+    READY_FOR_APPROVAL --> REJECTED : rejectRelease() (Changes Required)
+    APPROVED --> SHIPPED : shipRelease() (Deployment)
+```
+
+#### Core Components & Validations
+1. **Compliance Checklist**: Evaluates if a pull request has a linked PRD, associated engineering tasks, is synchronized, has a `COMPLETED` latest AI review, and contains 0 blocking findings (findings with `CRITICAL` or `HIGH` severity).
+2. **State Machine Validation**: Validates transitions server-side inside a database transaction:
+   - Target `READY_FOR_APPROVAL` is only allowed from `NOT_READY` or `REJECTED`.
+   - Target `APPROVED` and `REJECTED` are only allowed from `READY_FOR_APPROVAL`.
+   - Target `SHIPPED` is only allowed from `APPROVED`.
+   - Any invalid transition throws a `409 Conflict` error.
+3. **Audit Trail**: Every action (Request, Approve, Reject) appends a new immutable audit record to `release_approvals` containing the reviewer's user ID, comments, linked review version, and timestamp. Records are never modified or overwritten, providing a transparent history.
+
