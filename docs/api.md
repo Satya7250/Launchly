@@ -494,4 +494,88 @@ Exposes procedures for querying checklist compliance, requesting approval, and a
   - `CONFLICT` (if release state transition is invalid)
 - **Description**: Rejects a release. Transitions release status to `REJECTED`, pull request status to `CHANGES_REQUESTED` (resetting processingStatus to `READY_FOR_AI_REVIEW` to allow code corrections and review regeneration), and appends a `REJECTED` audit entry.
 
+---
+
+### 7. `ship` Router
+Exposes procedures for shipping approved releases to production. Maintains a dedicated, semantically separate audit trail from approval decisions.
+
+#### `status`
+- **Type**: `query`
+- **Procedure Access**: `workspaceProcedure` (Workspace scoped)
+- **Input Schema**:
+  ```typescript
+  z.object({
+    pullRequestId: z.string().uuid()
+  })
+  ```
+- **Output Schema**:
+  ```typescript
+  z.object({
+    releaseStatus: z.enum(["NOT_READY", "READY_FOR_APPROVAL", "APPROVED", "SHIPPED", "REJECTED"]),
+    shippedAt: z.date().nullable(),
+    shippedBy: z.string().uuid().nullable(),
+    releaseVersion: z.string().nullable(),
+    releaseId: z.string().uuid().nullable()
+  })
+  ```
+- **Errors**:
+  - `NOT_FOUND` (if pull request doesn't exist in workspace)
+- **Description**: Returns the current release status and ship metadata (shippedAt, shippedBy, releaseVersion) for a pull request. Safe to call at any lifecycle stage — returns null fields before the release is shipped.
+
+#### `history`
+- **Type**: `query`
+- **Procedure Access**: `workspaceProcedure` (Workspace scoped)
+- **Input Schema**:
+  ```typescript
+  z.object({
+    pullRequestId: z.string().uuid()
+  })
+  ```
+- **Output Schema**:
+  ```typescript
+  z.array(z.object({
+    id: z.string().uuid(),
+    releaseId: z.string().uuid(),
+    shippedBy: z.string().uuid().nullable(),
+    releaseVersion: z.string().nullable(),
+    notes: z.string().nullable(),
+    shippedAt: z.date()
+  }))
+  ```
+- **Errors**:
+  - `NOT_FOUND` (if pull request doesn't exist in workspace)
+- **Description**: Returns all ship audit records for a pull request in reverse chronological order. Each record is an immutable snapshot of a ship action. Records are never modified after insertion.
+
+#### `ship`
+- **Type**: `mutation`
+- **Procedure Access**: `workspaceProcedure` (Workspace scoped)
+- **Input Schema**:
+  ```typescript
+  z.object({
+    pullRequestId: z.string().uuid(),
+    releaseVersion: z.string().max(100).optional(),  // e.g. "v1.2.3"
+    notes: z.string().max(4000).optional()
+  })
+  ```
+- **Output Schema**:
+  ```typescript
+  z.object({
+    release: ReleaseModel,        // Updated release record with SHIPPED status
+    auditRecord: ShipAuditModel   // Newly inserted immutable ship audit entry
+  })
+  ```
+- **Errors**:
+  - `NOT_FOUND` (if pull request or release record is not found)
+  - `CONFLICT` (if release is not in APPROVED state — returns 409 for NOT_READY, READY_FOR_APPROVAL, REJECTED, or already SHIPPED)
+  - `INTERNAL_SERVER_ERROR` (unexpected errors)
+- **State Transitions** (all atomic in one transaction):
+  1. `releases.status`: `APPROVED` → `SHIPPED`
+  2. `releases.shippedAt`: set to current timestamp
+  3. `releases.shippedBy`: set to authenticated user ID
+  4. `releases.releaseVersion`: set to optional provided value
+  5. `pull_requests.processingStatus`: `HUMAN_APPROVED` → `SHIPPED`
+  6. `release_ship_audits`: INSERT new immutable audit row
+- **Description**: Ships an APPROVED release to production. Only callable when the release is in `APPROVED` state. All six mutations execute atomically inside a single database transaction. Approval history in `release_approvals` is never touched. The ship action is recorded in the dedicated `release_ship_audits` table to maintain semantic separation between approval decisions and deployment lifecycle events.
+
+
 

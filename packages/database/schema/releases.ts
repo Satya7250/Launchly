@@ -1,6 +1,7 @@
 import { pgTable, uuid, varchar, timestamp, index } from "drizzle-orm/pg-core";
 import { organizationsTable } from "./organizations";
 import { pullRequestsTable } from "./pull-requests";
+import { usersTable } from "./users";
 import { releaseStatusEnum } from "./enums";
 
 export const releasesTable = pgTable(
@@ -15,6 +16,13 @@ export const releasesTable = pgTable(
       .notNull(),
     version: varchar("version", { length: 100 }).notNull(),
     status: releaseStatusEnum("status").default("NOT_READY").notNull(),
+
+    // Ship lifecycle fields — populated atomically when status transitions to SHIPPED
+    shippedAt: timestamp("shipped_at"),
+    shippedBy: uuid("shipped_by")
+      .references(() => usersTable.id, { onDelete: "set null" }),
+    releaseVersion: varchar("release_version", { length: 100 }),
+
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

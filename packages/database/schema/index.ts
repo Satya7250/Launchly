@@ -17,6 +17,7 @@ export * from "./ai-review-audits";
 export * from "./review-issues";
 export * from "./review-history";
 export * from "./releases";
+export * from "./release-ship-audits";
 export * from "./subscriptions";
 export * from "./usage";
 export * from "./task-generation-audits";

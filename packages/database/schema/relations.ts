@@ -21,6 +21,7 @@ import { usageTable } from "./usage";
 import { taskGenerationAuditsTable } from "./task-generation-audits";
 import { githubSyncAuditsTable } from "./github-sync-audits";
 import { releaseApprovalsTable } from "./release_approvals";
+import { releaseShipAuditsTable } from "./release-ship-audits";
 
 
 export const organizationsRelations = relations(organizationsTable, ({ many, one }) => ({
@@ -37,6 +38,7 @@ export const organizationsRelations = relations(organizationsTable, ({ many, one
   reviewHistory: many(reviewHistoryTable),
   releases: many(releasesTable),
   releaseApprovals: many(releaseApprovalsTable),
+  releaseShipAudits: many(releaseShipAuditsTable),
   subscription: one(subscriptionsTable),
   usages: many(usageTable),
   taskGenerationAudits: many(taskGenerationAuditsTable),
@@ -51,6 +53,7 @@ export const usersRelations = relations(usersTable, ({ many }) => ({
   createdFeatureRequests: many(featureRequestsTable, { relationName: "creator" }),
   assignedFeatureRequests: many(featureRequestsTable, { relationName: "assignee" }),
   approvedReleaseApprovals: many(releaseApprovalsTable),
+  releaseShipAudits: many(releaseShipAuditsTable),
 }));
 
 export const sessionsRelations = relations(sessionsTable, ({ one }) => ({
@@ -247,7 +250,7 @@ export const reviewHistoryRelations = relations(reviewHistoryTable, ({ one }) =>
   }),
 }));
 
-export const releasesRelations = relations(releasesTable, ({ one }) => ({
+export const releasesRelations = relations(releasesTable, ({ one, many }) => ({
   organization: one(organizationsTable, {
     fields: [releasesTable.organizationId],
     references: [organizationsTable.id],
@@ -256,6 +259,11 @@ export const releasesRelations = relations(releasesTable, ({ one }) => ({
     fields: [releasesTable.pullRequestId],
     references: [pullRequestsTable.id],
   }),
+  shippedByUser: one(usersTable, {
+    fields: [releasesTable.shippedBy],
+    references: [usersTable.id],
+  }),
+  shipAudits: many(releaseShipAuditsTable),
 }));
 
 export const subscriptionsRelations = relations(subscriptionsTable, ({ one }) => ({
@@ -317,6 +325,25 @@ export const releaseApprovalsRelations = relations(releaseApprovalsTable, ({ one
   }),
   approvedByUser: one(usersTable, {
     fields: [releaseApprovalsTable.approvedBy],
+    references: [usersTable.id],
+  }),
+}));
+
+export const releaseShipAuditsRelations = relations(releaseShipAuditsTable, ({ one }) => ({
+  organization: one(organizationsTable, {
+    fields: [releaseShipAuditsTable.organizationId],
+    references: [organizationsTable.id],
+  }),
+  release: one(releasesTable, {
+    fields: [releaseShipAuditsTable.releaseId],
+    references: [releasesTable.id],
+  }),
+  pullRequest: one(pullRequestsTable, {
+    fields: [releaseShipAuditsTable.pullRequestId],
+    references: [pullRequestsTable.id],
+  }),
+  shippedByUser: one(usersTable, {
+    fields: [releaseShipAuditsTable.shippedBy],
     references: [usersTable.id],
   }),
 }));

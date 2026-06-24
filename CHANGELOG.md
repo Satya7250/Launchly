@@ -4,9 +4,76 @@ All notable changes to the Launchly platform will be documented in this file.
 
 ---
 
+## Phase 6: Ship Workflow — Complete AI Product Delivery Pipeline
+
+Phase 6 implements the final "Ship" workflow, completing the end-to-end Launchly product delivery pipeline:
+
+```
+Feature Request → PRD → Engineering Tasks → GitHub PR → AI Review → Human Approval → SHIPPED
+```
+
+### New Features
+
+#### Database: Additive Schema Changes
+- **`releases` table** — Three new nullable columns added via additive migration (`0012_ship_release_fields.sql`):
+  - `shipped_at` (timestamp) — Captures when the release was shipped
+  - `shipped_by` (uuid, FK → users) — Captures the user who triggered the ship action
+  - `release_version` (varchar 100) — Optional human-readable release version tag (e.g. `v1.2.3`)
+- **`release_ship_audits` table** — New dedicated immutable audit table for ship events:
+  - Semantically separate from `release_approvals` (human approval decisions)
+  - Every `shipRelease()` call inserts one immutable row; rows are never updated or deleted
+  - Columns: `organization_id`, `release_id`, `pull_request_id`, `shipped_by`, `release_version`, `notes`, `shipped_at`
+  - Four indexes for efficient querying
+
+#### Service Layer: `ShipService`
+- **`packages/services/ship-service.ts`** — New `ShipService` with three methods:
+  - `shipRelease({ userId, organizationId, pullRequestId, releaseVersion?, notes? })` — Atomic transactional ship with 6-step state machine
+  - `getShipStatus(organizationId, pullRequestId)` — Returns current ship metadata
+  - `getShipHistory(organizationId, pullRequestId)` — Returns immutable ship audit log
+- **State Transition Validation**: Only `APPROVED` releases can be shipped. Any other status throws `INVALID_TRANSITION` (HTTP 409)
+- **Atomic Transaction**: All 6 mutations execute in a single DB transaction — release update, PR processingStatus update, and ship audit insert
+- **Workspace Isolation**: All queries include `organizationId` scope checks
+
+#### tRPC: `shipRouter`
+- **`packages/trpc/server/routes/ship/route.ts`** — New `shipRouter` with:
+  - `ship.status` (query) — Fetch ship status and metadata
+  - `ship.history` (query) — Fetch immutable ship audit history
+  - `ship.ship` (mutation) — Ship an APPROVED release
+- All procedures use `workspaceProcedure` for workspace isolation
+- Error mapping: `INVALID_TRANSITION` → 409, `NOT_FOUND` → 404, else → 500
+
+#### Frontend: Ship Page & PR Button
+- **`apps/web/app/(dashboard)/github/pull-requests/[id]/ship/page.tsx`** — New Ship Release page:
+  - Release Summary panel (PRD, Tasks, AI Review, Human Approval, version, shipped metadata)
+  - Sticky Ship Panel with optional Release Version input and Release Notes textarea
+  - Confirmation dialog: "Are you sure you want to mark this release as SHIPPED?"
+  - Post-ship success banner showing `shippedBy`, `shippedAt`, `releaseVersion`
+  - Immutable Ship Audit Trail timeline
+  - Locked state for non-APPROVED releases
+- **`apps/web/app/(dashboard)/github/pull-requests/[id]/page.tsx`** — PR detail page updated:
+  - Added **"Ship Release"** button (purple, with Rocket icon)
+  - Button enabled only when `releaseStatus === "APPROVED"`
+  - Navigates to `/github/pull-requests/[id]/ship`
+
+#### Documentation
+- `docs/architecture.md` — Updated section 5 to document the full pipeline, state machine, and dual audit trail
+- `docs/database.md` — Added `releases` ship columns, `release_ship_audits` table documentation, updated ER diagram
+- `docs/api.md` — Added complete `ship` router documentation (status, history, ship endpoints)
+- `README.md` — Updated database reference, added ship audit to production readiness section
+- `CHANGELOG.md` — This entry
+
+### Architecture Decisions
+
+- **Audit Separation**: `release_approvals` records human approval decisions only. `release_ship_audits` records deployment events only. The two tables are never mixed — this preserves semantic correctness and simplifies independent querying.
+- **Additive Only**: Migration `0012` adds columns and a table. No DROP, no ALTER existing constraints, no data modifications.
+- **Immutability**: Ship audit rows are INSERT-only. No UPDATE or DELETE is performed anywhere in `ShipService`.
+
+---
+
 ## Phase 5: Human Approval & Release Workflow
 
 Phase 5 introduces a comprehensive, human-in-the-loop release gate before pull requests can move to the `SHIPPED` status. It provides automated checklist compliance, transactional state validations, and a permanent, immutable audit history.
+
 
 ### New Features
 

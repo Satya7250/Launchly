@@ -22,6 +22,7 @@ import {
   Download,
   Sparkles,
   ShieldCheck,
+  Rocket,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "~/lib/utils";
@@ -71,10 +72,19 @@ export default function PullRequestDetailPage() {
     { enabled: !!prId }
   );
 
+  // Fetch approval/release status to conditionally enable the Ship button
+  const { data: approvalEnvelope } = trpc.approval.status.useQuery(
+    { pullRequestId: prId },
+    { enabled: !!prId }
+  );
+
   const prDetails = prEnvelope?.data;
   const pr = prDetails?.pullRequest;
   const repo = prDetails?.repository;
   const files = prDetails?.files ?? [];
+
+  const releaseStatus = approvalEnvelope?.data?.releaseStatus ?? "NOT_READY";
+  const isApprovedForShip = releaseStatus === "APPROVED";
 
   // Lazy fetch full PR diff on demand for large patches
   const diffQuery = trpc.github.pullRequestDiff.useQuery(
@@ -203,6 +213,16 @@ export default function PullRequestDetailPage() {
             <Link href={`/github/pull-requests/${pr.id}/release-approval`}>
               <Button size="sm" className="gap-1.5">
                 Release Approval <ShieldCheck className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+            <Link href={`/github/pull-requests/${pr.id}/ship`}>
+              <Button
+                size="sm"
+                id="ship-release-nav-btn"
+                disabled={!isApprovedForShip}
+                className="gap-1.5 bg-purple-600 hover:bg-purple-500 text-white border-0 shadow-lg shadow-purple-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Ship Release <Rocket className="h-3.5 w-3.5" />
               </Button>
             </Link>
             <a href={pr.url} target="_blank" rel="noopener noreferrer">

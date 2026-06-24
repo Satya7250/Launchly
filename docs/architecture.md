@@ -216,8 +216,14 @@ sequenceDiagram
     API-->>RP: HTTP 200 OK
 ```
 
-### 5. Release Approval & Release State Machine
-Release approvals implement a strict human-in-the-loop gate before features can transition to production. This workflow guarantees that a release meets all compliance constraints:
+### 5. Release Approval, Ship Workflow & Complete Pipeline
+This phase implements the full AI-assisted product delivery pipeline. Releases must pass through every gate before they can be shipped:
+
+```
+Feature Request → PRD → Engineering Tasks → GitHub PR → AI Review → Human Approval → SHIPPED
+```
+
+#### Release State Machine
 
 ```mermaid
 stateDiagram-v2
@@ -226,7 +232,7 @@ stateDiagram-v2
     REJECTED --> READY_FOR_APPROVAL : requestApproval() (Checklist Re-Verified)
     READY_FOR_APPROVAL --> APPROVED : approveRelease() (Checklist Validated & Approved)
     READY_FOR_APPROVAL --> REJECTED : rejectRelease() (Changes Required)
-    APPROVED --> SHIPPED : shipRelease() (Deployment)
+    APPROVED --> SHIPPED : shipRelease() (Production Deployment)
 ```
 
 #### Core Components & Validations
@@ -236,5 +242,7 @@ stateDiagram-v2
    - Target `APPROVED` and `REJECTED` are only allowed from `READY_FOR_APPROVAL`.
    - Target `SHIPPED` is only allowed from `APPROVED`.
    - Any invalid transition throws a `409 Conflict` error.
-3. **Audit Trail**: Every action (Request, Approve, Reject) appends a new immutable audit record to `release_approvals` containing the reviewer's user ID, comments, linked review version, and timestamp. Records are never modified or overwritten, providing a transparent history.
+3. **Approval Audit Trail** (`release_approvals`): Every request, approval, and rejection appends a new immutable row containing reviewer ID, comments, linked AI review version, and timestamp. Only human approval lifecycle events are stored here.
+4. **Ship Audit Trail** (`release_ship_audits`): Every successful ship action inserts a new immutable row with `shippedBy`, `releaseVersion`, `notes`, and `shippedAt`. Ship events are deployment lifecycle events — semantically distinct from approval decisions — and are never mixed into `release_approvals`.
+5. **Release Fields on Ship**: When a release is shipped, the `releases` table is updated atomically with `status=SHIPPED`, `shippedAt`, `shippedBy`, and `releaseVersion`. The `pull_requests.processingStatus` is simultaneously updated to `SHIPPED` in the same transaction.
 

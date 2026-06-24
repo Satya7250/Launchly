@@ -51,11 +51,17 @@ erDiagram
     pull_requests ||--o{ pull_request_files : contains
     pull_requests ||--o{ github_sync_audits : logs
     pull_requests ||--o{ release_approvals : approvals
+    pull_requests ||--o{ releases : has
+    pull_requests ||--o{ release_ship_audits : ship_events
 
     organizations ||--o{ release_approvals : tracks
+    organizations ||--o{ releases : tracks
+    organizations ||--o{ release_ship_audits : tracks
     projects ||--o{ release_approvals : groups
     ai_reviews ||--o{ release_approvals : logs
     users ||--o{ release_approvals : decides
+    users ||--o{ release_ship_audits : ships
+    releases ||--o{ release_ship_audits : audited
 ```
 
 ---
@@ -565,7 +571,7 @@ erDiagram
 ---
 
 ### release_approvals
-**Purpose**: Stores historical, immutable approval/rejection audit trail entries.  
+**Purpose**: Immutable append-only audit log for human approval lifecycle events only (request, approve, reject). Ship events are stored separately in `release_ship_audits`. Records are never updated or deleted.  
 **Primary Key**: `id` (uuid, defaultRandom)
 
 #### Columns
@@ -591,3 +597,61 @@ erDiagram
 #### Relationships
 - Many-to-One: `organizations`, `projects`, `pull_requests`, `ai_reviews`, `users`
 
+---
+
+### releases
+**Purpose**: Tracks the lifecycle state of a release for a pull request. Updated atomically with ship metadata when shipped.  
+**Primary Key**: `id` (uuid, defaultRandom)
+
+#### Columns
+| Column | Type | Description |
+|---|---|---|
+| `id` | uuid | Primary key |
+| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
+| `pull_request_id` | uuid | Reference to `pull_requests.id` (restrict onDelete) |
+| `version` | varchar(100) | Internal version tag (default: `v{pr.number}`) |
+| `status` | enum | Release status (`NOT_READY`, `READY_FOR_APPROVAL`, `APPROVED`, `SHIPPED`, `REJECTED`) |
+| `shipped_at` | timestamp | Timestamp when the release was shipped (nullable) |
+| `shipped_by` | uuid | Reference to `users.id` (set null onDelete) — user who shipped (nullable) |
+| `release_version` | varchar(100) | Human-readable version tag e.g. `v1.2.3` (nullable) |
+| `created_at` | timestamp | Creation timestamp |
+| `updated_at` | timestamp | Update timestamp |
+
+#### Constraints & Indexes
+- Index: `releases_org_id_idx` on `organization_id`.
+- Index: `releases_pull_request_id_idx` on `pull_request_id`.
+- Index: `releases_status_idx` on `status`.
+
+#### Relationships
+- Many-to-One: `organizations`, `pull_requests`, `users` (shippedByUser)
+- One-to-Many: `release_ship_audits`
+
+---
+
+### release_ship_audits
+**Purpose**: Dedicated immutable audit log for release ship events. Semantically separate from `release_approvals` (which records human approval decisions). Every call to `shipRelease()` inserts one row. Records are never updated or deleted.  
+**Primary Key**: `id` (uuid, defaultRandom)
+
+#### Columns
+| Column | Type | Description |
+|---|---|---|
+| `id` | uuid | Primary key |
+| `organization_id` | uuid | Reference to `organizations.id` (cascade onDelete) |
+| `release_id` | uuid | Reference to `releases.id` (restrict onDelete) |
+| `pull_request_id` | uuid | Reference to `pull_requests.id` (restrict onDelete) |
+| `shipped_by` | uuid | Reference to `users.id` (set null onDelete) — actor who triggered ship |
+| `release_version` | varchar(100) | Version tag captured at ship time (nullable) |
+| `notes` | text | Optional release notes (nullable) |
+| `shipped_at` | timestamp | Immutable ship timestamp (default now()) |
+
+#### Constraints & Indexes
+- Index: `release_ship_audits_org_id_idx` on `organization_id`.
+- Index: `release_ship_audits_release_id_idx` on `release_id`.
+- Index: `release_ship_audits_pull_request_id_idx` on `pull_request_id`.
+- Index: `release_ship_audits_shipped_at_idx` on `shipped_at`.
+
+#### Relationships
+- Many-to-One: `organizations`, `releases`, `pull_requests`, `users` (shippedByUser)
+
+#### Design Rationale
+Ship events represent **deployment lifecycle events**, not approval decisions. Mixing them into `release_approvals` would make the audit trail semantically incorrect and harder to query independently. The dedicated table also allows the ship audit to carry ship-specific fields (`notes`, `release_version`) without polluting the approval schema.

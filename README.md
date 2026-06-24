@@ -188,14 +188,19 @@ erDiagram
 - **Indexes**: `github_sync_audits_org_id_idx` on `organization_id`, index on `delivery_id`.
 
 #### `releases`
-- **Purpose**: Tracks the lifecycle state of a release for a pull request.
-- **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK → organizations), `pull_request_id` (UUID, FK → pull_requests, RESTRICT on delete), `version` (Varchar), `status` (Enum: `NOT_READY`, `READY_FOR_APPROVAL`, `APPROVED`, `SHIPPED`, `REJECTED`).
+- **Purpose**: Tracks the lifecycle state of a release for a pull request. Updated atomically when shipped.
+- **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK → organizations), `pull_request_id` (UUID, FK → pull_requests, RESTRICT on delete), `version` (Varchar), `status` (Enum: `NOT_READY`, `READY_FOR_APPROVAL`, `APPROVED`, `SHIPPED`, `REJECTED`), `shipped_at` (Timestamp, nullable), `shipped_by` (UUID, FK → users, nullable), `release_version` (Varchar, nullable).
 - **Indexes**: `releases_org_id_idx` on `organization_id`, `releases_pull_request_id_idx` on `pull_request_id`, `releases_status_idx` on `status`.
 
 #### `release_approvals`
-- **Purpose**: Immutable, append-only audit log of all release decisions (request, approve, reject). Records are never updated or deleted.
+- **Purpose**: Immutable, append-only audit log of human approval decisions (request, approve, reject). Records are never updated or deleted. Ship events are stored in `release_ship_audits`.
 - **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK → organizations), `project_id` (UUID, FK → projects), `pull_request_id` (UUID, FK → pull_requests), `review_id` (UUID, FK → ai_reviews, nullable), `review_version` (Integer, nullable), `approved_by` (UUID, FK → users, nullable), `status` (Enum: `PENDING`, `APPROVED`, `REJECTED`), `comments` (Text, nullable), `created_at` (Timestamp), `updated_at` (Timestamp).
 - **Indexes**: `release_approvals_org_id_idx` on `organization_id`, `release_approvals_pull_request_id_idx` on `pull_request_id`, `release_approvals_status_idx` on `status`.
+
+#### `release_ship_audits`
+- **Purpose**: Dedicated immutable audit log for release ship events. Semantically distinct from `release_approvals` (approval decisions). Every `shipRelease()` call inserts one row — never updated or deleted.
+- **Columns**: `id` (UUID, PK), `organization_id` (UUID, FK → organizations), `release_id` (UUID, FK → releases, RESTRICT), `pull_request_id` (UUID, FK → pull_requests, RESTRICT), `shipped_by` (UUID, FK → users, nullable), `release_version` (Varchar, nullable), `notes` (Text, nullable), `shipped_at` (Timestamp).
+- **Indexes**: `release_ship_audits_org_id_idx`, `release_ship_audits_release_id_idx`, `release_ship_audits_pull_request_id_idx`, `release_ship_audits_shipped_at_idx`.
 
 ---
 
@@ -464,5 +469,7 @@ graph TD
 - **Large Diff Handling**: Memory footprint reduction by storing only small patches (<20KB) in the database and loading larger patches on-demand.
 - **Webhook Auditing**: Immutable audit trails log durations, statuses, retry attempts, and exceptions to ensure full pipeline visibility.
 - **Human Approval Gate**: Releases cannot be shipped without explicit human approval. All approval decisions (request, approve, reject) are stored as immutable records in `release_approvals` — never overwritten.
+- **Ship Audit Trail**: Every ship action inserts an immutable record in `release_ship_audits`, semantically separate from approval history. Ship events carry `shippedBy`, `releaseVersion`, `notes`, and `shippedAt`.
 - **Atomic State Transitions**: Every release state change (release row + PR row + audit record) executes inside a single database transaction, preventing partial updates.
 - **AI-Gated Approvals**: Releases with an incomplete AI review or unresolved `CRITICAL`/`HIGH` severity findings are blocked from approval at the server level, returning `428 PRECONDITION_FAILED`.
+- **Complete Pipeline**: The full AI product delivery pipeline is now implemented: Feature Request → PRD → Engineering Tasks → GitHub PR → AI Review → Human Approval → SHIPPED.

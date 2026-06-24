@@ -14,5 +14,7 @@ export { taskService, TaskService } from "./task.js";
 export { demoService, DemoService } from "./demo.js";
 export { aiReviewService, AIReviewService, AIReviewError } from "./ai-review.js";
 export { approvalService, ApprovalService, ApprovalServiceError } from "./approval-service.js";
+export { shipService, ShipService, ShipServiceError } from "./ship-service.js";
+
 
 
