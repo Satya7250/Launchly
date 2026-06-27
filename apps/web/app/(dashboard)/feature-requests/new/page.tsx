@@ -13,7 +13,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { Label } from "~/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
 import { Spinner } from "~/components/ui/spinner";
-import { FolderGit2, Plus, ArrowLeft } from "lucide-react";
+import { FolderGit2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 const requestSchema = z.object({
@@ -57,6 +57,7 @@ export default function NewFeatureRequestPage() {
       await createMutation.mutateAsync(data);
       toast.success("Feature request registered!");
       router.push("/feature-requests");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to submit feature request");
     }

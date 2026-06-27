@@ -30,6 +30,7 @@ export function ReviewOverview({ pullRequestId }: ReviewOverviewProps) {
     {
       enabled: !!pullRequestId,
       refetchInterval: (queryData) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const review = (queryData as any)?.data?.data;
         if (review && (review.status === "COMPLETED" || review.status === "FAILED")) {
           return false;
@@ -89,6 +90,7 @@ export function ReviewOverview({ pullRequestId }: ReviewOverviewProps) {
       const result = await generateMutation.mutateAsync({ pullRequestId });
       toast.success("AI review generation started!");
       setSelectedReviewId(result.data.id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (err.data?.code === "CONFLICT") {
         toast.error("A review is already pending for this PR!");
@@ -103,6 +105,7 @@ export function ReviewOverview({ pullRequestId }: ReviewOverviewProps) {
       const result = await regenerateMutation.mutateAsync({ pullRequestId });
       toast.success("AI review regeneration started!");
       setSelectedReviewId(result.data.id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (err.data?.code === "CONFLICT") {
         toast.error("A review is already pending for this PR!");

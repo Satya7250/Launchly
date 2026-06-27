@@ -1,6 +1,5 @@
 import { db, eq, and, isNull } from "@repo/database";
 import { featureRequestsTable, projectsTable } from "@repo/database/schema";
-import { auditService } from "./audit.js";
 import { clarificationService } from "./clarification.js";
 
 export class FeatureRequestService {
@@ -11,8 +10,7 @@ export class FeatureRequestService {
     title: string,
     description: string,
     priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-    source: "MANUAL" | "EMAIL" | "API" | "SUPPORT",
-    requestId: string
+    source: "MANUAL" | "EMAIL" | "API" | "SUPPORT"
   ) {
     // 1. Verify that project exists, belongs to active workspace, and is active
     const [project] = await db
@@ -66,8 +64,7 @@ export class FeatureRequestService {
       description: string;
       priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
       source: "MANUAL" | "EMAIL" | "API" | "SUPPORT";
-    }>,
-    requestId: string
+    }>
   ) {
     const [featureRequest] = await db
       .update(featureRequestsTable)
@@ -95,8 +92,7 @@ export class FeatureRequestService {
     userId: string,
     workspaceId: string,
     featureRequestId: string,
-    nextStatus: "NEW" | "CLARIFICATION_REQUIRED" | "READY_FOR_PRD" | "PRD_GENERATED",
-    requestId: string
+    nextStatus: "NEW" | "CLARIFICATION_REQUIRED" | "READY_FOR_PRD" | "PRD_GENERATED"
   ) {
     // 1. Fetch current status
     const [current] = await db
@@ -160,8 +156,7 @@ export class FeatureRequestService {
   public async archiveFeatureRequest(
     userId: string,
     workspaceId: string,
-    featureRequestId: string,
-    requestId: string
+    featureRequestId: string
   ) {
     const [archived] = await db
       .update(featureRequestsTable)

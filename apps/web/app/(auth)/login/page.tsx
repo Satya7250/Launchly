@@ -49,8 +49,9 @@ export default function LoginPage() {
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: "/dashboard",
+        callbackURL: "http://localhost:3000/dashboard",
       });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       const message = err?.message ?? "";
       if (message.toLowerCase().includes("cancel") || message.toLowerCase().includes("closed")) {
@@ -72,6 +73,7 @@ export default function LoginPage() {
 
       // Redirect correctly based on membership presence
       router.push("/dashboard");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Invalid credentials");
     }

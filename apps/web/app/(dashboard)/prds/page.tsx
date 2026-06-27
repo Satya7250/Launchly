@@ -7,7 +7,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { Spinner } from "~/components/ui/spinner";
-import { Brain, Search, Calendar, ArrowRight, Layers, HelpCircle, FileText } from "lucide-react";
+import { Brain, Search, Calendar, ArrowRight, Layers } from "lucide-react";
 import Link from "next/link";
 import { formatDate as formatUtilityDate } from "~/lib/utils";
 
@@ -18,8 +18,10 @@ export default function PRDsPage() {
   const prdList = envelope?.data ?? [];
 
   const filteredPrds = prdList.filter((item) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const titleMatch = (item.content as any)?.title?.toLowerCase().includes(search.toLowerCase());
     const reqTitleMatch = item.featureRequest?.title?.toLowerCase().includes(search.toLowerCase());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const descMatch = (item.content as any)?.executiveSummary?.toLowerCase().includes(search.toLowerCase());
     return titleMatch || reqTitleMatch || descMatch;
   });
@@ -89,6 +91,7 @@ export default function PRDsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredPrds.map((item) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const content = item.content as any;
             const prdTitle = content?.title || `PRD for ${item.featureRequest.title}`;
             const summary = content?.executiveSummary || "No summary provided.";

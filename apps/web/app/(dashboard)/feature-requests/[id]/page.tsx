@@ -3,12 +3,12 @@
 import React, { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { trpc } from "~/trpc/client";
-import { Card, CardHeader, CardContent, CardTitle, CardDescription, CardFooter } from "~/components/ui/card";
+import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Spinner } from "~/components/ui/spinner";
 import { toast } from "sonner";
-import { ArrowLeft, Brain, Calendar, Trash2, CheckCircle2, AlertTriangle, Play, HelpCircle, Layers, RefreshCw, FileText } from "lucide-react";
+import { ArrowLeft, Brain, Calendar, Trash2, CheckCircle2, AlertTriangle, Play, Layers, RefreshCw, FileText } from "lucide-react";
 import Link from "next/link";
 import { formatDate as formatUtilityDate } from "~/lib/utils";
 
@@ -48,6 +48,7 @@ export default function FeatureRequestDetailPage() {
           : "Clarification questions generated."
       );
       await refetch();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to analyze requirements");
     } finally {
@@ -61,6 +62,7 @@ export default function FeatureRequestDetailPage() {
       await archiveMutation.mutateAsync({ id });
       toast.success("Feature request archived successfully.");
       router.push("/feature-requests");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to archive request");
     }
@@ -108,9 +110,11 @@ export default function FeatureRequestDetailPage() {
       // Wait! What about simulating PRD generation?
       // `await updateStatusMutation.mutateAsync({ id, status: "PRD_GENERATED" })`
       // That's perfect!
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await updateStatusMutation.mutateAsync({ id, status: "READY_FOR_PRD" } as any);
       toast.success("Promoted to READY_FOR_PRD!");
       await refetch();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to promote status");
     }
@@ -128,6 +132,7 @@ export default function FeatureRequestDetailPage() {
       toast.success("PRD generated successfully!", { id: toastId });
       await refetch();
       router.push(`/prds/${newPrd.id}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to generate PRD", { id: toastId });
     } finally {

@@ -2,7 +2,6 @@ import { db, eq, and, desc } from "@repo/database";
 import { engineeringTasksTable, prdsTable, featureRequestsTable, taskGenerationAuditsTable } from "@repo/database/schema";
 import { inngest } from "@repo/inngest";
 import { TaskStatus } from "@repo/shared";
-import { prdService } from "./prd.js";
 import { randomUUID } from "node:crypto";
 
 export class TaskService {

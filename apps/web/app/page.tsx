@@ -11,7 +11,7 @@ export default async function Home() {
     } else {
       redirect("/login");
     }
-  } catch (err) {
+  } catch {
     redirect("/login");
   }
 

@@ -28,7 +28,7 @@ export const GlobalProviders: React.FC<{ children: React.ReactNode }> = ({ child
     <QueryClientProvider client={queryClient}>
       <NextThemesProvider
         attribute="class"
-        defaultTheme="light"
+        defaultTheme="dark"
         enableSystem
         disableTransitionOnChange
       >

@@ -3,13 +3,13 @@
 import React, { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { trpc } from "~/trpc/client";
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "~/components/ui/card";
+import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
 import { Spinner } from "~/components/ui/spinner";
-import { FileText, Plus, Search, Calendar, ShieldAlert, ArrowRight, Layers } from "lucide-react";
+import { FileText, Plus, Search, Calendar, ArrowRight, Layers } from "lucide-react";
 import Link from "next/link";
 import { formatDate as formatUtilityDate } from "~/lib/utils";
 

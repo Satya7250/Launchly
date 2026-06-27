@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@octokit/app@15.1.6':
+    hash: lu564pgdjoyhpbe3jligkdhqcu
+    path: patches/@octokit__app@15.1.6.patch
+
 importers:
 
   .:
@@ -6451,7 +6456,7 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.19.1
 
-  '@octokit/app@15.1.6':
+  '@octokit/app@15.1.6(patch_hash=lu564pgdjoyhpbe3jligkdhqcu)':
     dependencies:
       '@octokit/auth-app': 7.2.2
       '@octokit/auth-unauthenticated': 6.1.3
@@ -10155,7 +10160,7 @@ snapshots:
 
   octokit@4.1.4:
     dependencies:
-      '@octokit/app': 15.1.6
+      '@octokit/app': 15.1.6(patch_hash=lu564pgdjoyhpbe3jligkdhqcu)
       '@octokit/core': 6.1.6
       '@octokit/oauth-app': 7.1.6
       '@octokit/plugin-paginate-graphql': 5.2.4(@octokit/core@6.1.6)

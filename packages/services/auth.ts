@@ -1,5 +1,4 @@
 import { auth } from "@repo/auth";
-import { auditService } from "./audit.js";
 
 export class AuthService {
   public async signUp(body: { email: string; name: string; password: string }) {

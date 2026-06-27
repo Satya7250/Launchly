@@ -9,7 +9,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { Label } from "~/components/ui/label";
 import { Spinner } from "~/components/ui/spinner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "~/components/ui/dialog";
-import { FolderGit2, Plus, ArrowUpRight, Calendar, ArrowRight } from "lucide-react";
+import { FolderGit2, Plus, Calendar, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { formatDate } from "~/lib/utils";
@@ -41,6 +41,7 @@ export default function ProjectsPage() {
       setProjectDesc("");
       setDialogOpen(false);
       await refetch();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to create project");
     } finally {

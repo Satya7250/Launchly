@@ -185,6 +185,7 @@ export default function ShipReleasePage() {
       setNotes("");
       refetchShipStatus();
       refetchShipHistory();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to ship release");
     }

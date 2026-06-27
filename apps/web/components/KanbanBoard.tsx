@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { trpc } from "~/trpc/client";
 import {
   DndContext,
@@ -15,7 +15,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Card, CardHeader, CardContent } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Spinner } from "~/components/ui/spinner";
@@ -27,7 +26,6 @@ import {
   Activity,
   Workflow,
   Sparkles,
-  Trash2,
   ChevronDown,
   RefreshCw,
 } from "lucide-react";
@@ -89,9 +87,8 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col flex-1 min-w-[260px] rounded-xl border border-border/40 p-4 transition-colors duration-200 ${
-        isOver ? "bg-accent/40 border-primary/30" : "bg-card/25 backdrop-blur-xl"
-      }`}
+      className={`flex flex-col flex-1 min-w-[260px] rounded-xl border border-border/40 p-4 transition-colors duration-200 ${isOver ? "bg-accent/40 border-primary/30" : "bg-card/25 backdrop-blur-xl"
+        }`}
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -206,7 +203,7 @@ export function KanbanBoard({ prdId }: { prdId: string }) {
 
   // tRPC Procedures
   const { data: versionsEnvelope, refetch: refetchVersions } = trpc.task.listVersions.useQuery({ prdId });
-  const versions = versionsEnvelope?.data ?? [];
+  const versions = useMemo(() => versionsEnvelope?.data ?? [], [versionsEnvelope?.data]);
 
   // Poll generation status
   const statusEnvelope = trpc.task.getGenerationStatus.useQuery(
@@ -240,16 +237,15 @@ export function KanbanBoard({ prdId }: { prdId: string }) {
     }
   );
 
-  const rawTasks = tasksEnvelope?.data ?? [];
+  const rawTasks = tasksEnvelope?.data;
 
   // Sync board tasks when database tasks load
   useEffect(() => {
-    if (rawTasks) {
-      setBoardTasks(rawTasks as unknown as KanbanTask[]);
-    }
+    if (!rawTasks) return;
+
+    setBoardTasks(rawTasks as KanbanTask[]);
   }, [rawTasks]);
 
-  // Sync versions and set selected version when generation status transitions to COMPLETED
   useEffect(() => {
     if (generationStatus === "COMPLETED") {
       refetchVersions().then((res) => {
@@ -260,7 +256,7 @@ export function KanbanBoard({ prdId }: { prdId: string }) {
       });
       refetchTasks();
     }
-  }, [generationStatus]);
+  }, [generationStatus, refetchTasks, refetchVersions]);
 
   // Show status transition success toast
   useEffect(() => {
@@ -274,7 +270,6 @@ export function KanbanBoard({ prdId }: { prdId: string }) {
   const generateMutation = trpc.task.generate.useMutation();
   const updateStatusMutation = trpc.task.updateStatus.useMutation();
   const updatePositionMutation = trpc.task.updatePosition.useMutation();
-  const deleteMutation = trpc.task.delete.useMutation();
 
   const handleGenerateTasks = async () => {
     const toastId = toast.loading("Submitting spec to AI task generator...");
@@ -282,6 +277,7 @@ export function KanbanBoard({ prdId }: { prdId: string }) {
       await generateMutation.mutateAsync({ prdId });
       toast.success("AI breakdown initiated successfully.", { id: toastId });
       statusEnvelope.refetch();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to start AI breakdown", { id: toastId });
     }
@@ -330,16 +326,12 @@ export function KanbanBoard({ prdId }: { prdId: string }) {
     // Save current state for rollback
     const previousTasks = [...boardTasks];
 
-    // Filter out dragged task
-    let updatedTasks = boardTasks.filter((t) => t.id !== taskId);
+    const updatedTasks = boardTasks.filter((t) => t.id !== taskId);
 
-    // Insert at new location
     if (COLUMNS.some((col) => col.id === overId)) {
-      // Dropped on empty column
       const updatedDraggedTask = { ...draggedTask, status: targetStatus };
       updatedTasks.push(updatedDraggedTask);
     } else {
-      // Dropped on a task
       const insertIndex = updatedTasks.findIndex((t) => t.id === overId);
       const updatedDraggedTask = { ...draggedTask, status: targetStatus };
       if (insertIndex !== -1) {
@@ -380,22 +372,9 @@ export function KanbanBoard({ prdId }: { prdId: string }) {
       }
 
       refetchTasks();
-    } catch (err: any) {
+    } catch {
       setBoardTasks(previousTasks);
       toast.error("Failed to move task. Reverting...");
-    }
-  };
-
-  const handleDeleteTask = async (taskId: string) => {
-    const confirmDelete = window.confirm("Are you sure you want to delete this task?");
-    if (!confirmDelete) return;
-
-    try {
-      await deleteMutation.mutateAsync({ taskId });
-      toast.success("Task deleted successfully.");
-      refetchTasks();
-    } catch (err: any) {
-      toast.error("Failed to delete task.");
     }
   };
 

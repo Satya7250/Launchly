@@ -35,17 +35,29 @@ app.all("/api/auth/*any", toNodeHandler(auth));
 
 app.use(
   express.json({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     verify: (req: any, _res, buf) => {
       req.rawBody = buf;
     },
   })
 );
 
+app.use("/api/inngest", (req, _res, next) => {
+  console.log("=== INNGEST REQUEST ===");
+  console.log("Method:", req.method);
+  console.log("URL:", req.originalUrl);
+  console.log("Headers:", req.headers);
+  next();
+});
+
 app.use(
   "/api/inngest",
   serve({
     client: inngest,
-    functions: [taskGenerationFunction, githubPullRequestReceivedFunction],
+    functions: [
+      taskGenerationFunction,
+      githubPullRequestReceivedFunction,
+    ],
   })
 );
 
@@ -65,6 +77,7 @@ app.get("/openapi.json", (req, res) => {
 logger.debug(`docs: ${env.BASE_URL}/docs`);
 app.use("/docs", apiReference({ url: "/openapi.json" }));
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 app.post("/api/webhooks/github", async (req: any, res) => {
   const signature = req.headers["x-hub-signature-256"] as string;
   const deliveryId = req.headers["x-github-delivery"] as string;
@@ -196,6 +209,7 @@ app.post("/api/webhooks/github", async (req: any, res) => {
     }
 
     return res.status(200).json({ success: true });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     logger.error("Failed to process GitHub webhook", error);
     return res.status(500).json({ error: error.message || "Internal server error" });

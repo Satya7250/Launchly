@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { trpc } from "~/trpc/client";
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "~/components/ui/card";
+import { Card, CardContent } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Spinner } from "~/components/ui/spinner";
 import { Label } from "~/components/ui/label";
@@ -16,7 +16,6 @@ import {
   ExternalLink,
   RefreshCw,
   GitMerge,
-  GitCommit,
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "~/lib/utils";
@@ -198,7 +197,7 @@ export default function PullRequestsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/20">
-                  {prs.map(({ pullRequest: pr, repositoryName, repositoryFullName }) => (
+                  {prs.map(({ pullRequest: pr, repositoryName }) => (
                     <tr key={pr.id} className="hover:bg-accent/5 transition-all group">
                       <td className="px-6 py-4">
                         <div className="flex items-start gap-3 min-w-[280px]">

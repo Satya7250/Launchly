@@ -69,50 +69,42 @@ export const workspaceRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      try {
-        const result = await workspaceService.createWorkspace(
-          ctx.auth.user.id,
-          input.name,
-          ctx.requestId
-        );
+      const result = await workspaceService.createWorkspace(
+        ctx.auth.user.id,
+        input.name,
+        ctx.requestId
+      );
 
-        if (ctx.res) {
-          ctx.res.cookie("active_workspace_id", result.workspace.id, {
-            httpOnly: true,
-            sameSite: "lax",
-            path: "/",
-            secure: process.env.NODE_ENV === "production",
-          });
-        }
-
-        return createResponse(result, ctx);
-      } catch (err: any) {
-        throw err;
+      if (ctx.res) {
+        ctx.res.cookie("active_workspace_id", result.workspace.id, {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure: process.env.NODE_ENV === "production",
+        });
       }
+
+      return createResponse(result, ctx);
     }),
 
   seedDemoWorkspace: authedProcedure
     .use(rateLimitMiddleware(5, 60 * 1000))
     .mutation(async ({ ctx }) => {
-      try {
-        const workspace = await demoService.seedDemoData(
-          ctx.auth.user.id,
-          ctx.requestId
-        );
+      const workspace = await demoService.seedDemoData(
+        ctx.auth.user.id,
+        ctx.requestId
+      );
 
-        if (ctx.res) {
-          ctx.res.cookie("active_workspace_id", workspace.id, {
-            httpOnly: true,
-            sameSite: "lax",
-            path: "/",
-            secure: process.env.NODE_ENV === "production",
-          });
-        }
-
-        return createResponse({ workspace }, ctx);
-      } catch (err: any) {
-        throw err;
+      if (ctx.res) {
+        ctx.res.cookie("active_workspace_id", workspace.id, {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure: process.env.NODE_ENV === "production",
+        });
       }
+
+      return createResponse({ workspace }, ctx);
     }),
 });
 

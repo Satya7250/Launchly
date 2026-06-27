@@ -22,7 +22,9 @@
     "RAZORPAY_KEY_ID",
     "RAZORPAY_KEY_SECRET",
     "INNGEST_EVENT_KEY",
-    "INNGEST_SIGNING_KEY"
+    "INNGEST_SIGNING_KEY",
+    "INNGEST_DEV",
+    "MOCK_AI"
   ],
   "tasks": {
     "build": {

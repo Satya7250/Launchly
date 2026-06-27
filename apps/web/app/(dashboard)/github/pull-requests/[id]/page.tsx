@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { trpc } from "~/trpc/client";
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "~/components/ui/card";
+import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Spinner } from "~/components/ui/spinner";
-import { Label } from "~/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
 import {
   GitPullRequest,
@@ -81,7 +80,7 @@ export default function PullRequestDetailPage() {
   const prDetails = prEnvelope?.data;
   const pr = prDetails?.pullRequest;
   const repo = prDetails?.repository;
-  const files = prDetails?.files ?? [];
+  const files = useMemo(() => prDetails?.files ?? [], [prDetails]);
 
   const releaseStatus = approvalEnvelope?.data?.releaseStatus ?? "NOT_READY";
   const isApprovedForShip = releaseStatus === "APPROVED";

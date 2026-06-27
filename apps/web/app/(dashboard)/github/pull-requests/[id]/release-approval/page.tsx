@@ -15,9 +15,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  Calendar,
   User,
-  MessageSquare,
   ShieldCheck,
   Send,
   Check,
@@ -56,7 +54,6 @@ export default function ReleaseApprovalPage() {
   const rejectMutation = trpc.approval.reject.useMutation();
 
   const pr = prEnvelope?.data?.pullRequest;
-  const repo = prEnvelope?.data?.repository;
   const status = statusEnvelope?.data;
   const history = historyEnvelope?.data || [];
 
@@ -72,6 +69,7 @@ export default function ReleaseApprovalPage() {
       setComments("");
       refetchStatus();
       refetchHistory();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to request approval");
     }
@@ -87,6 +85,7 @@ export default function ReleaseApprovalPage() {
       setComments("");
       refetchStatus();
       refetchHistory();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to approve release");
     }
@@ -106,6 +105,7 @@ export default function ReleaseApprovalPage() {
       setComments("");
       refetchStatus();
       refetchHistory();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to reject release");
     }

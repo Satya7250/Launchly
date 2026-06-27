@@ -1,6 +1,7 @@
 {
   "name": "@repo/database",
   "private": true,
+  "type": "module",
   "exports": {
     ".": {
       "types": "./index.ts",

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { trpc } from "~/trpc/client";
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "~/components/ui/card";
@@ -13,7 +13,6 @@ import {
   GitBranch,
   Lock,
   Globe,
-  Settings,
   AlertCircle,
   CheckCircle2,
   ExternalLink,
@@ -45,7 +44,7 @@ export default function GithubIntegrationPage() {
 
   const connectedRepos = reposEnvelope?.data?.connected ?? [];
   const availableRepos = reposEnvelope?.data?.available ?? [];
-  const installations = reposEnvelope?.data?.installations ?? [];
+  const installations = useMemo(() => reposEnvelope?.data?.installations ?? [], [reposEnvelope]);
 
   // Automatically select the first installation if available and none selected
   useEffect(() => {
@@ -78,6 +77,7 @@ export default function GithubIntegrationPage() {
       });
       toast.success(`Connected repository ${repo.fullName} successfully!`);
       await refetch();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to connect repository");
     } finally {

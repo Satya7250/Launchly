@@ -6,7 +6,6 @@ import {
   aiReviewsTable,
   aiReviewFindingsTable,
   repositoriesTable,
-  prdsTable,
   engineeringTasksTable,
 } from "@repo/database/schema";
 import { logger } from "@repo/logger";

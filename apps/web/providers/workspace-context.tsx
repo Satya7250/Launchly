@@ -5,6 +5,7 @@ import { trpc } from "~/trpc/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 interface WorkspaceContextType {
   user: any;
   session: any;
@@ -13,6 +14,7 @@ interface WorkspaceContextType {
   membership: any;
   workspaces: Array<{ workspace: any; role: string }>;
   isLoading: boolean;
+/* eslint-enable @typescript-eslint/no-explicit-any */
   refetch: () => Promise<void>;
   switchWorkspace: (workspaceId: string) => Promise<void>;
   createWorkspace: (name: string) => Promise<void>;
@@ -68,6 +70,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
       toast.success("Switched workspace");
       await handleRefetch();
       router.push("/dashboard");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to switch workspace");
     }
@@ -79,6 +82,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
       toast.success("Workspace created");
       await handleRefetch();
       router.push("/dashboard");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to create workspace");
     }
@@ -90,7 +94,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({ children 
       toast.success("Logged out successfully");
       await refetchSession();
       router.push("/login");
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to sign out");
     }
   };

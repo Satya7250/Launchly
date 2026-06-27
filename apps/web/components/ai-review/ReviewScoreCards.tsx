@@ -8,7 +8,6 @@ import {
   Building2,
   FileText,
   CheckSquare,
-  Target,
 } from "lucide-react";
 
 interface ScoreData {

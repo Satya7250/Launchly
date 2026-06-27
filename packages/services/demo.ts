@@ -13,10 +13,8 @@ import {
   githubSyncAuditsTable,
   taskGenerationAuditsTable,
 } from "@repo/database/schema";
-import { auditService } from "./audit.js";
-
 export class DemoService {
-  public async seedDemoData(userId: string, requestId: string) {
+  public async seedDemoData(userId: string) {
     const timestamp = Date.now().toString().slice(-4);
     const orgName = `ShipFlow AI - Demo Workspace ${timestamp}`;
     const slug = `shipflow-demo-${timestamp}`;
@@ -76,24 +74,6 @@ export class DemoService {
       }
 
       // 5. Create PRD
-      const prdContent = {
-        title: "PRD - Automated Pull Request Code Reviews",
-        executiveSummary: "Automate code reviews using AI, focusing on syntax, styles, edge cases, and architectural recommendations.",
-        targetUsers: ["Software Engineers", "Tech Leads", "Code Reviewers"],
-        functionalRequirements: [
-          "Secure signature validation on incoming GitHub webhook events",
-          "Idempotency checks to prevent double processing of identical webhooks",
-          "Cascade-safe pull request metadata and file ingestion",
-          "Interactive files list and detailed inline diff views in dashboard",
-          "Lazy-loading of diff patches for files exceeding size thresholds (>20KB)",
-        ],
-        nonFunctionalRequirements: [
-          "Webhook processing completes in under 100ms to stay within GitHub constraints",
-          "High visual fidelity dashboard with dark mode aesthetics and micro-animations",
-        ],
-        risks: ["Exceeding GitHub API rate limits on very large PR branches"],
-        assumptions: ["GitHub App configurations are valid"],
-      };
 
       const [prd] = await tx
         .insert(prdsTable)

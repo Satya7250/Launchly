@@ -1,6 +1,5 @@
 import { Inngest, eventType } from "inngest";
 import { z } from "zod";
-import { env } from "./env.js";
 
 export const taskGenerateEvent = eventType("task.generate", {
   schema: z.object({
@@ -49,6 +48,4 @@ export const pullRequestReviewCompletedEvent = eventType(
 
 export const inngest = new Inngest({
   id: "launchly",
-  eventKey: env.INNGEST_EVENT_KEY,
 });
-

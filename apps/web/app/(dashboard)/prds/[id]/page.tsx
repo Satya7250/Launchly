@@ -41,7 +41,7 @@ export default function PRDDetailPage() {
   const prd = prdEnvelope?.data;
 
   // Query all versions of this PRD for history (using featureRequestId once loaded)
-  const { data: versionsEnvelope, isLoading: versionsLoading, refetch: refetchVersions } =
+  const { data: versionsEnvelope, isLoading: versionsLoading } =
     trpc.prd.versions.useQuery(
       { featureRequestId: prd?.featureRequestId as string },
       { enabled: !!prd?.featureRequestId }
@@ -69,6 +69,7 @@ export default function PRDDetailPage() {
       toast.success("Successfully generated new PRD version!", { id: toastId });
       // Redirect to the newly generated version
       router.push(`/prds/${newPrd.id}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to regenerate PRD", { id: toastId });
     }
@@ -102,6 +103,7 @@ export default function PRDDetailPage() {
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const content = prd.content as any;
   const prdTitle = content?.title || `PRD for Feature Request`;
   const isRegenerating = regenerateMutation.isPending;
@@ -276,7 +278,9 @@ export default function PRDDetailPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {content.functionalRequirements?.map((req: any, idx: number) => (
+                        {content.functionalRequirements?.map(
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          (req: any, idx: number) => (
                           <tr key={idx} className="border-b border-border/10 hover:bg-muted/10 transition-colors">
                             <td className="p-4 font-mono font-bold text-xs text-primary">{req.id}</td>
                             <td className="p-4 font-semibold text-foreground">{req.title}</td>
@@ -311,10 +315,13 @@ export default function PRDDetailPage() {
                 </CardHeader>
                 <CardContent className="border-t border-border/10 pt-5">
                   <ul className="space-y-4">
-                    {(prd.userStories as any[]).map((storyObj: any, idx: number) => (
+                    {// eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    (prd.userStories as any[]).map(
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      (storyObj: any, idx: number) => (
                       <li key={idx} className="p-4 rounded-xl border border-border/20 bg-muted/20 space-y-2">
                         <div className="text-xs uppercase font-bold text-primary tracking-wider">Story {idx + 1}</div>
-                        <p className="text-sm font-semibold leading-relaxed text-foreground">"{storyObj.story}"</p>
+                         <p className="text-sm font-semibold leading-relaxed text-foreground">&quot;{storyObj.story}&quot;</p>
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
                           <span className="font-bold text-foreground">Business Value:</span> {storyObj.value}
                         </p>
@@ -372,7 +379,9 @@ export default function PRDDetailPage() {
                   </CardHeader>
                   <CardContent className="border-t border-border/10 pt-5">
                     <ul className="space-y-4">
-                      {content.nonFunctionalRequirements?.map((nfr: any, idx: number) => (
+                      {content.nonFunctionalRequirements?.map(
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        (nfr: any, idx: number) => (
                         <li key={idx} className="space-y-1">
                           <span className="text-xs uppercase font-bold text-primary tracking-wider">{nfr.category}</span>
                           <p className="text-sm text-foreground">{nfr.description}</p>
@@ -414,7 +423,9 @@ export default function PRDDetailPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {content.risks?.map((risk: any, idx: number) => (
+                        {content.risks?.map(
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          (risk: any, idx: number) => (
                           <tr key={idx} className="border-b border-border/10 hover:bg-muted/10 transition-colors">
                             <td className="p-4 text-foreground leading-relaxed">{risk.description}</td>
                             <td className="p-4 text-muted-foreground leading-relaxed font-medium bg-green-500/5">{risk.mitigation}</td>

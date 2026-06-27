@@ -37,8 +37,7 @@ export class ProjectService {
     userId: string,
     workspaceId: string,
     projectId: string,
-    fields: Partial<{ name: string; description: string }>,
-    requestId: string
+    fields: Partial<{ name: string; description: string }>
   ) {
     const [project] = await db
       .update(projectsTable)
@@ -66,8 +65,7 @@ export class ProjectService {
   public async archiveProject(
     userId: string,
     workspaceId: string,
-    projectId: string,
-    requestId: string
+    projectId: string
   ) {
     const [project] = await db
       .update(projectsTable)

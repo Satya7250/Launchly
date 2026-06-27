@@ -30,6 +30,7 @@ export default function WorkspaceSelectPage() {
       toast.success("Demo Workspace configured and seeded successfully!");
       await refetch();
       router.push("/dashboard");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(err.message || "Failed to seed demo workspace");
     } finally {

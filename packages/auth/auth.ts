@@ -19,6 +19,11 @@ export const auth = betterAuth({
       verification: verificationsTable,
     },
   }),
+
+  trustedOrigins: [
+    "http://localhost:3000",
+  ],
+  
   emailAndPassword: {
     enabled: true,
   },

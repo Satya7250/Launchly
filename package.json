@@ -12,15 +12,20 @@
     "validate": "pnpm lint && pnpm check-types && pnpm build"
   },
   "devDependencies": {
+    "@types/node": "^22.15.3",
     "cross-env": "^10.1.0",
     "dotenv-cli": "^11.0.0",
     "prettier": "^3.7.4",
     "turbo": "^2.7.2",
-    "typescript": "5.9.2",
-    "@types/node": "^22.15.3"
+    "typescript": "5.9.2"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=18"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "@octokit/app@15.1.6": "patches/@octokit__app@15.1.6.patch"
+    }
   }
 }
