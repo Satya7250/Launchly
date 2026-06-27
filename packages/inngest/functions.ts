@@ -3,7 +3,7 @@ import { db, eq, and, desc, sql } from "@repo/database";
 import { prdsTable, engineeringTasksTable, taskGenerationAuditsTable, pullRequestsTable, pullRequestFilesTable, repositoriesTable, githubSyncAuditsTable, aiReviewsTable, aiReviewFindingsTable, aiReviewAuditsTable } from "@repo/database/schema";
 import { getPRDProvider, AIReviewInput } from "@repo/ai";
 import { TaskStatus, TaskAiMetadata } from "@repo/shared";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { getPullRequest, getPullRequestFiles } from "@repo/github";
 import { aiReviewService } from "../services/ai-review.js";
 
@@ -39,7 +39,7 @@ export const taskGenerationFunction = inngest.createFunction(
         return latest.id;
       }
 
-      const newId = globalThis.crypto ? globalThis.crypto.randomUUID() : require("node:crypto").randomUUID();
+      const newId = globalThis.crypto ? globalThis.crypto.randomUUID() : randomUUID();
       const useMock = process.env.MOCK_AI === 'true';
       await db.insert(taskGenerationAuditsTable).values({
         id: newId,
@@ -240,24 +240,38 @@ export const taskGenerationFunction = inngest.createFunction(
         tasksCount: aiResult.tasks.length,
         version: nextVersion,
       };
-    } catch (error: any) {
-      // 9. Transition status to FAILED and record error message
-      await step.run("transition-to-failed", async () => {
-        const completedAt = new Date();
-        const durationMs = completedAt.getTime() - functionStartedAt.getTime();
+    } catch (error: unknown) {
+      const completedAt = new Date();
+      const durationMs = completedAt.getTime() - functionStartedAt.getTime();
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
-        await db
-          .update(taskGenerationAuditsTable)
-          .set({
-            status: "FAILED",
-            completedAt,
-            durationMs,
-            error: error?.message || String(error),
-            updatedAt: new Date(),
-          })
-          .where(eq(taskGenerationAuditsTable.id, resolvedGenId));
-      });
-      // Re-throw so Inngest registers the failure/retry
+      if (resolvedGenId) {
+        await step.run("transition-to-failed", async () => {
+          await db
+            .update(taskGenerationAuditsTable)
+            .set({
+              status: "FAILED",
+              completedAt,
+              durationMs,
+              error: errorMessage,
+              updatedAt: new Date(),
+            })
+            .where(eq(taskGenerationAuditsTable.id, resolvedGenId));
+        });
+      } else if (generationId) {
+        await step.run("transition-to-failed", async () => {
+          await db
+            .update(taskGenerationAuditsTable)
+            .set({
+              status: "FAILED",
+              completedAt,
+              durationMs,
+              error: errorMessage,
+              updatedAt: new Date(),
+            })
+            .where(eq(taskGenerationAuditsTable.id, generationId));
+        });
+      }
       throw error;
     }
   }

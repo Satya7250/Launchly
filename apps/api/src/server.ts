@@ -42,14 +42,6 @@ app.use(
   })
 );
 
-app.use("/api/inngest", (req, _res, next) => {
-  console.log("=== INNGEST REQUEST ===");
-  console.log("Method:", req.method);
-  console.log("URL:", req.originalUrl);
-  console.log("Headers:", req.headers);
-  next();
-});
-
 app.use(
   "/api/inngest",
   serve({

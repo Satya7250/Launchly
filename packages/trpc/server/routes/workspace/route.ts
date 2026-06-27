@@ -91,8 +91,7 @@ export const workspaceRouter = router({
     .use(rateLimitMiddleware(5, 60 * 1000))
     .mutation(async ({ ctx }) => {
       const workspace = await demoService.seedDemoData(
-        ctx.auth.user.id,
-        ctx.requestId
+        ctx.auth.user.id
       );
 
       if (ctx.res) {

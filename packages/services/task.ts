@@ -3,6 +3,7 @@ import { engineeringTasksTable, prdsTable, featureRequestsTable, taskGenerationA
 import { inngest } from "@repo/inngest";
 import { TaskStatus } from "@repo/shared";
 import { randomUUID } from "node:crypto";
+import { logger } from "@repo/logger";
 
 export class TaskService {
   /**
@@ -164,10 +165,15 @@ export class TaskService {
     const idempotencyKey = `idemp-${generationId}`;
     const useMock = process.env.MOCK_AI === 'true';
 
+    logger.info("[Task Generation] Starting task generation trigger", {
+      workspaceId,
+      prdId,
+      generationId,
+    });
+
     let projectId: string | undefined = undefined;
 
     await db.transaction(async (tx) => {
-      // 1. Lock the PRD row to serialize concurrent generation requests for this PRD
       const [prd] = await tx
         .select()
         .from(prdsTable)
@@ -180,10 +186,10 @@ export class TaskService {
         .for("update");
 
       if (!prd) {
+        logger.error("[Task Generation] PRD not found", { prdId, workspaceId });
         throw new Error("PRD_NOT_FOUND");
       }
 
-      // 2. Fetch the corresponding feature request
       const [featureRequest] = await tx
         .select()
         .from(featureRequestsTable)
@@ -196,12 +202,12 @@ export class TaskService {
         .limit(1);
 
       if (!featureRequest) {
+        logger.error("[Task Generation] Feature request not found", { featureRequestId: prd.featureRequestId, workspaceId });
         throw new Error("FEATURE_REQUEST_NOT_FOUND");
       }
 
       projectId = featureRequest.projectId;
 
-      // 3. Check if there is already an active generation in progress
       const [latestAudit] = await tx
         .select()
         .from(taskGenerationAuditsTable)
@@ -215,10 +221,13 @@ export class TaskService {
         .limit(1);
 
       if (latestAudit && (latestAudit.status === "QUEUED" || latestAudit.status === "GENERATING")) {
+        logger.warn("[Task Generation] Generation already in progress", {
+          existingId: latestAudit.id,
+          existingStatus: latestAudit.status,
+        });
         throw new Error("GENERATION_IN_PROGRESS");
       }
 
-      // 4. Insert initial audit record
       await tx.insert(taskGenerationAuditsTable).values({
         id: generationId,
         organizationId: workspaceId,
@@ -233,18 +242,48 @@ export class TaskService {
     });
 
     if (!projectId) {
+      logger.error("[Task Generation] Project ID not found after transaction", { workspaceId, prdId });
       throw new Error("PROJECT_ID_NOT_FOUND");
     }
 
-    await inngest.send({
-      name: "task.generate",
-      data: {
-        workspaceId,
-        prdId,
-        projectId,
-        generationId,
-      },
+    logger.info("[Task Generation] Audit record created with status QUEUED", {
+      generationId,
+      projectId,
     });
+
+    try {
+      await inngest.send({
+        name: "task.generate",
+        data: {
+          workspaceId,
+          prdId,
+          projectId,
+          generationId,
+        },
+      });
+      logger.info("[Task Generation] Inngest event published successfully", {
+        generationId,
+        eventName: "task.generate",
+      });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.error("[Task Generation] Failed to publish Inngest event", {
+        generationId,
+        error: errorMessage,
+      });
+
+      await db
+        .update(taskGenerationAuditsTable)
+        .set({
+          status: "FAILED",
+          error: errorMessage,
+          completedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(taskGenerationAuditsTable.id, generationId));
+
+      throw new Error(`Failed to queue task generation: ${errorMessage}`);
+    }
 
     return { success: true, generationId };
   }

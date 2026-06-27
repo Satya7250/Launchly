@@ -26,8 +26,7 @@ export const featureRequestRouter = router({
           input.title,
           input.description,
           input.priority,
-          input.source,
-          ctx.requestId
+          input.source
         );
         return createResponse(result, ctx);
       } catch (err: any) {
@@ -59,8 +58,7 @@ export const featureRequestRouter = router({
             ctx.auth.user.id,
             ctx.workspace.active.id,
             id,
-            status,
-            ctx.requestId
+            status
           );
         } catch (err: any) {
           if (err.message === "INVALID_STATUS_TRANSITION") {
@@ -76,8 +74,7 @@ export const featureRequestRouter = router({
           ctx.auth.user.id,
           ctx.workspace.active.id,
           id,
-          fields,
-          ctx.requestId
+          fields
         );
       } else {
         const fetched = await featureRequestService.getFeatureRequest(
@@ -103,8 +100,7 @@ export const featureRequestRouter = router({
       const result = await featureRequestService.archiveFeatureRequest(
         ctx.auth.user.id,
         ctx.workspace.active.id,
-        input.id,
-        ctx.requestId
+        input.id
       );
       return createResponse(result, ctx);
     }),
@@ -165,8 +161,7 @@ export const featureRequestRouter = router({
         ctx.auth.user.id,
         ctx.workspace.active.id,
         input.id,
-        "CLARIFICATION_REQUIRED",
-        ctx.requestId
+        "CLARIFICATION_REQUIRED"
       );
 
       return createResponse(

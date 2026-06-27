@@ -24,6 +24,7 @@
     "INNGEST_EVENT_KEY",
     "INNGEST_SIGNING_KEY",
     "INNGEST_DEV",
+    "INNGEST_BASE_URL",
     "MOCK_AI"
   ],
   "tasks": {

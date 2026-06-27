@@ -34,8 +34,7 @@ export const projectRouter = router({
         ctx.auth.user.id,
         ctx.workspace.active.id,
         input.projectId,
-        { name: input.name, description: input.description },
-        ctx.requestId
+        { name: input.name, description: input.description }
       );
       return createResponse(result, ctx);
     }),
@@ -50,8 +49,7 @@ export const projectRouter = router({
       const result = await projectService.archiveProject(
         ctx.auth.user.id,
         ctx.workspace.active.id,
-        input.projectId,
-        ctx.requestId
+        input.projectId
       );
       return createResponse(result, ctx);
     }),
